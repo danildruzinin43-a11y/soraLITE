@@ -1,0 +1,2098 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SoraLite — бесплатный ИИ-видео по тексту</title>
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="shortcut icon" href="favicon.png">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  :root{--bg:#0a0b10;--panel:#13151c;--line:#262a36;--txt:#eceff5;--mut:#8b93a7;--acc:#7aa2ff;--acc2:#b78cff;--ok:#43d6a3;--err:#ff6b74;--gold:#ffcf6b;}
+  body{
+    background:
+      radial-gradient(1200px 700px at 85% -10%, #151a2e 0%, transparent 55%),
+      radial-gradient(900px 600px at 0% 110%, #1c1430 0%, transparent 55%),
+      var(--bg);
+    color:var(--txt); font-family:"Segoe UI",system-ui,-apple-system,sans-serif; min-height:100vh;
+  }
+  .header{display:flex;align-items:center;justify-content:space-between;padding:18px 30px;border-bottom:1px solid var(--line);}
+  .brand{display:flex;align-items:center;gap:12px;}
+  .brand-logo{width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,var(--acc),var(--acc2));display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 4px 20px rgba(122,162,255,.4);}
+  .brand h1{font-size:19px;font-weight:700;}
+  .brand h1 span{background:linear-gradient(90deg,var(--acc),var(--acc2));-webkit-background-clip:text;background-clip:text;color:transparent;}
+  .brand .free{font-size:11px;color:var(--gold);background:rgba(255,207,107,.12);border:1px solid rgba(255,207,107,.3);padding:2px 8px;border-radius:99px;margin-left:8px;}
+  .sub{font-size:12px;color:var(--mut);margin-top:2px;}
+  .header .status-chip{font-size:12px;color:var(--ok);display:flex;align-items:center;gap:6px;}
+  .header .status-chip .dot{width:8px;height:8px;border-radius:50%;background:var(--ok);animation:blink 1.6s infinite;}
+  @keyframes blink{0%,100%{opacity:1;}50%{opacity:.3;}}
+  .wrap{max-width:1050px;margin:0 auto;padding:26px;}
+  .hero{text-align:center;margin:14px 0 28px;}
+  .hero h2{font-size:26px;font-weight:700;letter-spacing:.2px;}
+  .hero h2 span{background:linear-gradient(90deg,var(--acc),var(--acc2));-webkit-background-clip:text;background-clip:text;color:transparent;}
+  .hero p{color:var(--mut);font-size:14px;margin-top:8px;}
+  .stage-card{background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:16px;box-shadow:0 20px 60px rgba(0,0,0,.45);}
+  #stage{width:100%;aspect-ratio:16/9;background:#000;border-radius:14px;display:block;}
+  .gen-overlay{position:relative;}
+  .gen-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(6,8,14,.72);border-radius:14px;opacity:0;pointer-events:none;transition:opacity .25s;}
+  .gen-center.show{opacity:1;pointer-events:auto;}
+  .gen-center .ring{width:70px;height:70px;border-radius:50%;border:4px solid rgba(122,162,255,.15);border-top-color:var(--acc);animation:spin 1s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .gen-center .gen-text{margin-top:16px;color:#ffffff;font-size:16px;font-weight:700;}
+  .gen-center .gen-sub{margin-top:6px;color:#dbe4f5;font-size:14px;font-weight:600;}
+  .gen-bar{width:220px;height:5px;background:var(--line);border-radius:99px;margin-top:18px;overflow:hidden;}
+  .gen-bar div{height:100%;width:0;background:linear-gradient(90deg,var(--acc),var(--acc2));transition:width .2s;}
+  .stage-controls{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;}
+  .stage-controls button{background:#1b202b;color:var(--txt);border:1px solid var(--line);padding:11px 18px;border-radius:11px;cursor:pointer;font-size:14px;font-weight:600;transition:.15s;flex:1;min-width:126px;}
+  .stage-controls button:hover{border-color:var(--acc);}
+  .stage-controls button.primary{background:linear-gradient(90deg,var(--acc),var(--acc2));border:none;color:#fff;}
+  .stage-controls button:disabled{opacity:.45;cursor:not-allowed;}
+  .dl{display:none;margin-top:12px;padding:12px 16px;background:rgba(67,214,163,.08);border:1px solid rgba(67,214,163,.35);border-radius:12px;font-size:14px;color:var(--ok);}
+  .dl a{color:var(--ok);font-weight:700;}
+  .prompt-wrap{margin-top:22px;}
+  .prompt-box{position:relative;}
+  .prompt-box textarea{
+    width:100%;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:20px 118px 20px 20px;
+    color:#ffffff;font-weight:600;font-size:17px;}
+  .prompt-box textarea::placeholder{color:#aeb6c8;font-weight:500;}
+  .prompt-box textarea:focus{outline:none;border-color:var(--acc);}
+  .prompt-btn{position:absolute;right:12px;top:50%;transform:translateY(-50%);
+    background:linear-gradient(90deg,var(--acc),var(--acc2));color:#fff;border:none;border-radius:12px;padding:12px 18px;font-size:15px;font-weight:700;cursor:pointer;}
+  .prompt-btn:hover{filter:brightness(1.1);}
+  .suggest{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px;justify-content:center;}
+  .suggest .chip{font-size:13px;color:var(--mut);background:var(--panel);border:1px solid var(--line);padding:8px 14px;border-radius:99px;cursor:pointer;transition:.15s;}
+  .suggest .chip:hover{border-color:var(--acc);color:var(--txt);}
+  .info{display:flex;gap:12px;margin-top:22px;flex-wrap:wrap;}
+  .info .card{flex:1;min-width:200px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;}
+  .info .card .ico{font-size:22px;}
+  .info .card h3{font-size:14px;margin:8px 0 4px;}
+  .info .card p{font-size:12.5px;color:var(--mut);line-height:1.5;}
+  .logbox{margin-top:18px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;font-size:14px;color:#ffffff;max-height:120px;overflow-y:auto;line-height:1.6;}
+  .logbox .me{color:#ffffff;font-weight:600;}
+  .logbox .ai{color:#a9c4ff;font-weight:600;}
+  .logbox b{color:#ffffff;}
+
+  /* ===== КРЕДИТЫ + ПРОМОКОДЫ + МОДАЛКИ ===== */
+  .credits-bar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 18px;margin-bottom:14px;}
+  .credits-left{display:flex;align-items:center;gap:10px;font-size:16px;font-weight:700;color:#ffffff;}
+  .credits-title{color:var(--mut);font-size:14px;font-weight:600;}
+  #creditsCount{color:#ffd76b;font-size:22px;text-shadow:0 0 12px rgba(255,215,107,.4);}
+  .credits-cost{color:var(--mut);font-size:13px;font-weight:500;}
+  .credits-right{display:flex;align-items:center;gap:10px;}
+  .promo-btn{background:#21262d;color:#ffffff;border:1px solid var(--line);padding:9px 14px;border-radius:10px;cursor:pointer;font-size:14px;font-weight:600;}
+  .promo-btn:hover{border-color:var(--acc);}
+  .promo-active{color:var(--ok);font-size:13px;font-weight:600;}
+  .promo-left{position:fixed;left:14px;top:50%;transform:translateY(-50%);background:rgba(19,21,28,.92);border:1px solid var(--line);border-radius:14px;padding:14px;font-size:13px;color:#ffffff;max-width:170px;line-height:1.5;box-shadow:0 8px 30px rgba(0,0,0,.4);z-index:40;}
+  .promo-left .pl-title{color:#ffd76b;font-weight:700;margin-bottom:6px;}
+  .promo-left .pl-days{font-size:26px;font-weight:800;color:#7ef0b8;}
+  .modal{position:fixed;inset:0;background:rgba(4,6,12,.7);display:none;align-items:center;justify-content:center;z-index:60;}
+  .modal.show{display:flex;}
+  .modal-box{background:#14161d;border:1px solid var(--line);border-radius:18px;padding:22px;width:min(420px,92vw);box-shadow:0 20px 60px rgba(0,0,0,.6);color:#fff;}
+  .modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+  .modal-head h3{margin:0;font-size:18px;}
+  .modal-close{background:none;border:none;color:var(--mut);font-size:20px;cursor:pointer;}
+  .modal-body input[type=text]{width:100%;background:#0d1117;border:1px solid var(--line);color:#fff;border-radius:10px;padding:12px;font-size:15px;margin-bottom:10px;}
+  .modal-body input:focus{outline:none;border-color:var(--acc);}
+  .modal-body button.primary{width:100%;background:linear-gradient(90deg,var(--acc),var(--acc2));border:none;color:#fff;padding:11px;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;}
+  .promo-msg{font-size:13px;margin-top:10px;min-height:18px;}
+  .promo-msg.ok{color:var(--ok);} .promo-msg.err{color:var(--err);}
+  .promo-list{margin-top:14px;font-size:13px;color:var(--mut);line-height:1.7;}
+  .promo-list .code{color:#ffffff;font-weight:700;font-family:monospace;}
+  .cookie-text{color:#dbe4f5;font-size:14px;line-height:1.6;}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="brand">
+    <img src="favicon.png" alt="logo" style="width:44px;height:44px;border-radius:12px;box-shadow:0 4px 20px rgba(122,162,255,.45);object-fit:cover;">
+    <div>
+      <h1>Sora<span>Lite</span><span class="free">БЕСПЛАТНО</span></h1>
+      <div class="sub">текст → видео. Работает сам, офлайн, без интернета.</div>
+    </div>
+  </div>
+  <div class="status-chip"><span class="dot"></span> движок готов</div>
+</div>
+
+<div class="wrap">
+  <div class="hero">
+    <h2>Преврати слова в <span>видео</span></h2>
+    <p>Напиши, что хочешь увидеть — ИИ сам построит клип со звуком. Бесплатно и мгновенно.</p>
+  </div>
+
+  <div class="stage-card">
+    <div class="gen-overlay">
+      <canvas id="stage" width="1280" height="720"></canvas>
+      <div class="gen-center" id="genCenter">
+        <div class="ring"></div>
+        <div class="gen-text" id="genText">Генерирую видео…</div>
+        <div class="gen-sub" id="genSub">собираю сцены</div>
+        <div class="gen-bar"><div id="genFill"></div></div>
+      </div>
+    </div>
+    <div class="stage-controls">
+      <button id="btnPlay" class="primary">▶ Смотреть</button>
+      <button id="btnRecord">⏺ Скачать видео</button>
+      <button id="btnSound">🎵 Звук: вкл</button>
+    </div>
+    <div class="dl" id="dl">✅ Готово! <a id="dlLink" download="soralite-clip.webm" href="#">скачать clip.webm</a> — <span id="dlSize"></span></div>
+  </div>
+
+  <div class="credits-bar">
+    <div class="credits-left">
+      <span class="credits-title">⭐ Кредиты</span>
+      <span id="creditsCount">140</span>
+      <span class="credits-cost" id="creditsCost">· 20 за генерацию</span>
+    </div>
+    <div class="credits-right">
+      <span id="promoActive" class="promo-active" style="display:none;">—</span>
+      <button id="btnPromo" class="promo-btn">🎟 Промокоды</button>
+    </div>
+  </div>
+
+  <div class="promo-left" id="promoLeft" style="display:none;"></div>
+
+  <div class="prompt-wrap">
+    <div class="prompt-box">
+      <textarea id="prompt" rows="2" placeholder="Опиши видео… например: «неоновый город под дождём, камера летит по улицам»"></textarea>
+      <button class="prompt-btn" id="btnGen">✦ Создать клип</button>
+    </div>
+    <div class="suggest" id="chips"></div>
+  </div>
+
+  <!-- окно промокодов -->
+  <div class="modal" id="promoModal">
+    <div class="modal-box">
+      <div class="modal-head"><h3>🎟 Ввести промокод</h3><button id="btnPromoClose" class="modal-close">✕</button></div>
+      <div class="modal-body">
+        <input type="text" id="promoInput" placeholder="Введи промокод…">
+        <button id="btnPromoApply" class="primary">Активировать</button>
+        <div class="promo-msg" id="promoMsg"></div>
+        <div class="promo-list" id="promoList"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- куки-соглашение -->
+  <div class="modal" id="cookieModal">
+    <div class="modal-box">
+      <div class="modal-head"><h3>🍪 Мы используем ваши cookie-данные</h3></div>
+      <div class="modal-body">
+        <p class="cookie-text">Входя на сайт, вы автоматически соглашаетесь с использованием cookie-файлов и локального хранилища для сохранения ваших кредитов, промокодов и настроек, а также для защиты от злоупотреблений.</p>
+        <button id="btnCookieOk" class="primary" style="width:100%;margin-top:12px;">Принимаю</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="info">
+    <div class="card"><div class="ico">🎬</div><h3>Собирает клип из сцен</h3><p>Понимает слова и строит последовательность сцен: океан, космос, горы, лес, город, зима.</p></div>
+    <div class="card"><div class="ico">🎵</div><h3>Музыка встроена</h3><p>Фон генерируется на лету в браузере.</p></div>
+    <div class="card"><div class="ico">⚡</div><h3>Мгновенно и офлайн</h3><p>Всё внутри одной HTML-страницы. Работает на любом компьютере — интернет не нужен.</p></div>
+  </div>
+
+  <div class="logbox" id="logbox"></div>
+</div>
+
+<script>
+"use strict";
+const W=1280,H=720;
+const cv=document.getElementById("stage");
+const ctx=cv.getContext("2d");
+const $=id=>document.getElementById(id);
+const $log=$("logbox");
+function log(text,who){const d=document.createElement("div");d.className=who||"";d.innerHTML=text;$log.appendChild(d);$log.scrollTop=$log.scrollHeight;}
+
+// ================== КРЕДИТЫ, ПРОМОКОДЫ, ЗАЩИТА ==================
+const CREDIT_COST=20, CREDIT_INIT=140;
+// промокоды: имя → {days: сколько дней действия, label}
+const PROMOS={
+  "soraMATEMATIKA":{days:7,label:"Безлимит на неделю"},
+  "AI DOSTYP":{days:3,label:"Безлимит на 3 дня"},
+  "chool creator":{days:1,label:"Безлимит на 1 день"}
+};
+function now(){ return Date.now(); }
+function storeGet(k,d){ try{const v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch(e){return d;} }
+function storeSet(k,v){ try{localStorage.setItem(k,JSON.stringify(v));}catch(e){} }
+
+// состояние пользователя (по IP+устройству)
+let USER={
+  credits:null,          // осталось кредитов
+  promo:null,            // {code, expiresAt, startedAt} — активный промокод
+  usedPromos:[],         // коды, уже применённые на этом IP/устройстве
+  ip:"",                 // сохранённый IP
+  cookieAccepted:false,
+  antiFarm:0,            // число генераций
+  farmWindow:[]          // метки времени генераций для антифарма
+};
+function loadUser(){
+  USER=storeGet("sl_user",USER);
+  if(typeof USER.credits!=="number") USER.credits=CREDIT_INIT;
+  USER.usedPromos=USER.usedPromos||[];
+  USER.farmWindow=USER.farmWindow||[];
+}
+const LS_KEY="sl_user";
+function saveUser(){ storeSet(LS_KEY,USER); }
+function renderCredits(){
+  const el=$("creditsCount");
+  const promo=activePromo();
+  if(promo){
+    el.textContent="∞";
+    el.style.color="#7ef0b8";
+    const ch=$("creditsCost"); if(ch) ch.textContent="· безлимит активен";
+  }else{
+    el.textContent=USER.credits;
+    el.style.color="#ffd76b";
+    const ch=$("creditsCost"); if(ch) ch.textContent="· 20 за генерацию";
+  }
+}
+function activePromo(){
+  const p=USER.promo;
+  if(p&&p.expiresAt>now()) return p;
+  if(p&&p.expiresAt<=now()){ USER.promo=null; saveUser(); }
+  return null;
+}
+function promoRemainMs(){ const p=activePromo(); return p?(p.expiresAt-now()):0; }
+function promoDaysLeft(){
+  const p=activePromo(); if(!p) return 0;
+  const ms=p.expiresAt-now();
+  return {days:Math.max(0,Math.ceil(ms/86400000)), code:p.code, label:p.label||""};
+}
+function hasUnlimited(){ return !!activePromo(); }
+
+// ---- антифарм: защита от перезапусков ----
+function antiFarmOK(){
+  // максимум N генераций в окне времени
+  const win=USER.farmWindow||[];
+  const cutoff=now()-60*1000; // за 60 сек
+  const clean=win.filter(ts=>ts>cutoff);
+  USER.farmWindow=clean;
+  if(clean.length>=12){ saveUser(); return false; }
+  USER.farmWindow.push(now());
+  saveUser();
+  return true;
+}
+
+// ---- списание кредитов (или безлимит) ----
+function trySpend(){
+  if(hasUnlimited()){
+    // безлимит — проверяем антифарм, но не списываем
+    return antiFarmOK();
+  }
+  if(USER.credits>=CREDIT_COST){
+    USER.credits-=CREDIT_COST;
+    saveUser(); renderCredits();
+    return true;
+  }
+  return false;
+}
+
+// ---- проверка/применение промокода ----
+function validatePromo(code){
+  if(!code) return {ok:false,msg:"Введи промокод."};
+  const key=Object.keys(PROMOS).find(k=>k.toLowerCase().trim()===code.toLowerCase().trim());
+  if(!key) return {ok:false,msg:"Промокод не найден."};
+  // уже использован на этом IP/устройстве ранее?
+  if(USER.usedPromos.indexOf(key)>=0){
+    return {ok:false,msg:"Этот промокод уже был использован на этом устройстве/IP."};
+  }
+  // есть активный — нельзя активировать другой до истечения
+  const ap=activePromo();
+  if(ap){ 
+    const ms=ap.expiresAt-now(); const d=Math.max(1,Math.ceil(ms/86400000));
+    return {ok:false,msg:"Уже действует промокод. Осталось ~"+d+" дн. Дождись окончания."};
+  }
+  return {ok:true,key:key};
+}
+function applyPromo(code){
+  const v=validatePromo(code);
+  if(!v.ok) return v;
+  const key=v.key;
+  const days=PROMOS[key].days;
+  USER.promo={code:key,label:PROMOS[key].label,startedAt:now(),expiresAt:now()+days*86400000};
+  USER.usedPromos.push(key);
+  saveUser(); renderCredits(); renderPromoLeft();
+  return {ok:true,msg:"✅ Промокод «"+key+"» активирован! Безлимит на "+days+" дн."};
+}
+
+// ---- левый блок: активный промокод м дни ----
+function renderPromoLeft(){
+  const box=$("promoLeft");
+  const p=activePromo();
+  if(p){
+    const d2=promoDaysLeft();
+    box.style.display="block";
+    box.innerHTML="<div class='pl-title'>⭐ Безлимит активен</div>"+
+      "<div>неограниченно генераций</div>"+
+      "<div class='pl-days'>"+d2.days+" дн.</div>"+
+      "<div>осталось</div>";
+    $("promoActive").style.display="inline";
+    $("promoActive").textContent="Безлимит активен";
+  }else{
+    box.style.display="none";
+    $("promoActive").style.display="none";
+  }
+}
+function renderPromoList(){
+  const el=$("promoList");
+  // коды секретные — показываем только факт наличия/использования без самих кодов
+  let h="<b>Промокоды секретные 🤫</b><br>Коды не отображаются — введи промокод, который у тебя есть.<br><br>";
+  const usedCount=USER.usedPromos.length;
+  h+="Активных промокодов на этом устройстве: <b>"+usedCount+" из "+Object.keys(PROMOS).length+"</b> уже использовано.<br>";
+  el.innerHTML=h;
+}
+
+// ---- IP ----
+let userIP=null;
+function fetchIP(){
+  // пробуем через бесплатный API (если есть сеть); при ошибке используем локальный fingerpint
+  return fetch("https://api.ipify.org?format=json",{timeout:4000})
+    .then(r=>r.json()).then(j=>{userIP=j.ip||null;USER.ip=userIP;saveUser();return userIP;})
+    .catch(()=>{userIP=USER.ip||null;return userIP;});
+}
+function deviceId(){
+  // стабильный идентификатор устройства (даже если IP сменится)
+  let id=storeGet("sl_dev",null);
+  if(!id){ id="dev-"+Math.random().toString(36).slice(2)+Date.now(); storeSet("sl_dev",id); }
+  return id;
+}
+
+// ---- куки-соглашение ----
+function showCookieIfNeeded(){
+  if(USER.cookieAccepted){ return; }
+  $("cookieModal").classList.add("show");
+}
+$("btnCookieOk").addEventListener("click",()=>{
+  USER.cookieAccepted=true; saveUser();
+  $("cookieModal").classList.remove("show");
+  log("🍪 Спасибо! Cookie-данные сохранены.","ai");
+});
+
+// ---- события промокодов ----
+$("btnPromo").addEventListener("click",()=>{
+  renderPromoList();
+  $("promoMsg").textContent="";
+  $("promoInput").value="";
+  $("promoModal").classList.add("show");
+});
+$("btnPromoClose").addEventListener("click",()=>$("promoModal").classList.remove("show"));
+$("btnPromoApply").addEventListener("click",()=>{
+  const r=applyPromo($("promoInput").value);
+  const m=$("promoMsg");
+  m.textContent=r.msg; 
+  m.className="promo-msg "+(r.ok?"ok":"err");
+  if(r.ok){ setTimeout(()=>$("promoModal").classList.remove("show"),1800); renderPromoList(); }
+});
+$("promoInput").addEventListener("keydown",e=>{if(e.key==="Enter")$("btnPromoApply").click();});
+
+// инициализация кредитов/защиты
+loadUser();
+fetchIP();
+renderCredits();
+renderPromoLeft();
+renderPromoList();
+setTimeout(showCookieIfNeeded,1500);
+
+// ================== ПАРСЕР ЗАПРОСА (мини-ИИ) ==================
+function pickCharacter(q){
+  q=(q||"").toLowerCase();
+  const table=[
+    ["cat",      /кот|кош|котик|котёнк|котенк|cat|kitty|мурлы/],
+    ["dog",      /собак|пёс|щен|dog|puppy|гав/],
+    ["bear",     /медвед|медвеж|bear|мишк/],
+    ["bunny",    /заяц|зайч|кролик|bunny|rabbit|hare/],
+    ["fox",      /лис|лисиц|fox/],
+    ["wolf",     /волк|wolf/],
+    ["deer",     /олен|олени|deer|лось/],
+    ["elk",      /лось|moose|лоси/],
+    ["tiger",    /тигр|tiger/],
+    ["lion",     /лев|lion/],
+    ["leopard",  /леопард|leopard|гепард|чеetah|cheetah/],
+    ["zebra",    /зебра|zebra/],
+    ["horse",    /лошад|конь|horse/],
+    ["pony",     /пони|pony/],
+    ["donkey",   /осёл|осел|donkey|ишак/],
+    ["cow",      /коров|корова|cow/],
+    ["bull",     /бык|bull/],
+    ["goat",     /коз|goat/],
+    ["pig",      /свин|порос|pig/],
+    ["sheep",    /овц|sheep|овечк|баран/],
+    ["ram",      /баран|ram/],
+    ["monkey",   /обезьян|мартышк|monkey|примат/],
+    ["gorilla",  /горилл|gorilla/],
+    ["elephant", /слон|elephant/],
+    ["giraffe",  /жираф|giraffe/],
+    ["rhino",    /носорог|rhino|rhinoceros/],
+    ["hippo",    /бегемот|hippo|hipopotam/],
+    ["kangaroo", /кенгур|kangaroo/],
+    ["koala",    /коала|koala/],
+    ["panda",    /панда|panda/],
+    ["sloth",    /ленивец|sloth/],
+    ["hedgehog", /ёж|еж|hedgehog|ёжик/],
+    ["hamster",  /хомяк|hamster/],
+    ["rac",      /енот|енот/],
+    ["raccoon",  /енот|raccoon/],
+    ["otter",    /выдра|otter|калан/],
+    ["seal",     /тюлен|seal|морской кот/],
+    ["walrus",   /морж|walrus/],
+    ["snake",    /змей|snake|удав|питон/],
+    ["crocodile",/крокодил|crocodile|кроко/],
+    ["turtle",   /черепах|turtle|тортilos/],
+    ["frog",     /лягушк|frog|жаб/],
+    ["lizard",   /ящериц|lizard|геккон/],
+    ["owl",      /сов|owl/],
+    ["eagle",    /орёл|орел|eagle/],
+    ["parrot",   /попуга|parrot/],
+    ["flamingo", /фламинго|flamingo/],
+    ["penguin",  /пингвин|penguin/],
+    ["ostrich",  /страус|ostrich/],
+    ["duck",     /утк|duck|утён|утен/],
+    ["goose",    /гус|goose|гул/],
+    ["rooster",  /петух|rooster|cock|куриц|курица/],
+    ["chicken",  /куриц|chicken/],
+    ["turkey",   /индюк|индейк|turkey/],
+    ["dolphin",  /дельфин|dolphin/],
+    ["whale",    /кит|whale/],
+    ["fish",     /рыб|fish|щук|окун/],
+    ["crab",     /краб|crab/],
+    ["octopus",  /осьминог|octopus/],
+    ["squid",    /кальмар|squid/],
+    ["jellyfish",/медуз|jellyfish/],
+    ["shark",    /акул|shark/],
+    ["seahorse", /морской кон|seahorse/],
+    ["starfish", /морская звезд|starfish/],
+    ["butterfly",/бабочк|butterfly|мотыл/],
+    ["bee",      /пчел|пчела|bee/],
+    ["ladybug",  /божья коровк|ladybug/],
+    ["ant",      /мурав|ant/],
+    ["bird",     /птиц|вороб|голуб|bird|птичк|синиц|ворон|ласточ/],
+    ["camel",    /верблюд|camel/],
+    ["cheetah",  /гепард|cheetah/]
+  ];
+  for(const [name,re] of table){ if(re.test(q)) return name; }
+  return "none";
+}
+// возвращает МАССИВ всех найденных животных (могут упоминаться несколько)
+function pickCharacters(q){
+  q=(q||"").toLowerCase();
+  const table=[
+    ["cat",/кот|кош|котик|котёнк|котенк|cat|kitty|мурлы/],["dog",/собак|пёс|щен|dog|puppy|гав/],
+    ["bear",/медвед|медвеж|bear|мишк/],["bunny",/заяц|зайч|кролик|bunny|rabbit|hare/],
+    ["fox",/лис|лисиц|fox/],["wolf",/волк|wolf/],["deer",/олен|олени|deer/],["elk",/лось|moose|лоси/],
+    ["tiger",/тигр|tiger/],["lion",/лев|lion/],["leopard",/леопард|leopard/],["gepard",/гепард|cheetah/],
+    ["zebra",/зебра|zebra/],["horse",/лошад|конь|horse/],["pony",/пони|pony/],["donkey",/осёл|осел|donkey|ишак/],
+    ["cow",/коров|корова|cow/],["bull",/бык|bull/],["goat",/коз|goat/],["pig",/свин|порос|pig/],
+    ["sheep",/овц|sheep|овечк/],["ram",/баран|ram/],["monkey",/обезьян|мартышк|monkey|примат/],
+    ["gorilla",/горилл|gorilla/],["elephant",/слон|elephant/],["giraffe",/жираф|giraffe/],
+    ["rhino",/носорог|rhino/],["hippo",/бегемот|hippo/],["kangaroo",/кенгур|kangaroo/],
+    ["koala",/коала|koala/],["panda",/панда|panda/],["sloth",/ленивец|sloth/],
+    ["hedgehog",/ёж|еж|hedgehog|ёжик/],["hamster",/хомяк|hamster/],["raccoon",/енот|raccoon|rac/],
+    ["otter",/выдра|otter/],["seal",/тюлен|seal/],["walrus",/морж|walrus/],
+    ["snake",/змей|snake|удав|питон/],["crocodile",/крокодил|crocodile/],["turtle",/черепах|turtle/],
+    ["frog",/лягушк|frog|жаб/],["lizard",/ящериц|lizard|геккон/],["owl",/сов|owl/],
+    ["eagle",/орёл|орел|eagle/],["parrot",/попуга|parrot/],["flamingo",/фламинго|flamingo/],
+    ["penguin",/пингвин|penguin/],["ostrich",/страус|ostrich/],["duck",/утк|duck|утён|утен/],
+    ["goose",/гус|goose/],["rooster",/петух|rooster|cock/],["chicken",/куриц|chicken/],
+    ["turkey",/индюк|индейк|turkey/],["dolphin",/дельфин|dolphin/],["whale",/кит|whale/],
+    ["fish",/рыб|fish|щук|окун/],["crab",/краб|crab/],["octopus",/осьминог|octopus/],
+    ["squid",/кальмар|squid/],["jellyfish",/медуз|jellyfish/],["shark",/акул|shark/],
+    ["seahorse",/морской кон|seahorse/],["starfish",/морская звезд|starfish/],
+    ["butterfly",/бабочк|butterfly|мотыл/],["bee",/пчел|пчела|bee/],["ladybug",/божья коровк|ladybug/],
+    ["ant",/мурав|ant/],["bird",/птиц|вороб|голуб|bird|птичк|синиц|ворон|ласточ/],
+    ["camel",/верблюд|camel/]
+  ];
+  const found=[];
+  for(const [name,re] of table){ if(re.test(q) && found.indexOf(name)<0){ found.push(name); } }
+  return found;
+}
+const ANIMAL_HOME={
+  cat:"city",dog:"city",bear:"forest",bunny:"forest",fox:"forest",wolf:"forest",deer:"forest",elk:"forest",
+  tiger:"jungle",lion:"savanna",leopard:"savanna",zebra:"savanna",horse:"field",pony:"field",donkey:"farm",
+  cow:"farm",bull:"farm",goat:"farm",pig:"farm",sheep:"farm",ram:"farm",monkey:"jungle",gorilla:"jungle",
+  elephant:"savanna",giraffe:"savanna",rhino:"savanna",hippo:"oasis",kangaroo:"savanna",koala:"jungle",
+  panda:"forest",sloth:"jungle",hedgehog:"forest",hamster:"farm",raccoon:"forest",otter:"pond",seal:"ocean",
+  walrus:"winter",snake:"jungle",crocodile:"oasis",turtle:"ocean",frog:"pond",lizard:"desert",
+  owl:"forest",eagle:"mountains",parrot:"jungle",flamingo:"oasis",penguin:"winter",ostrich:"savanna",
+  duck:"pond",goose:"pond",rooster:"farm",chicken:"farm",turkey:"farm",dolphin:"ocean",whale:"ocean",
+  fish:"ocean",crab:"ocean",octopus:"ocean",squid:"ocean",jellyfish:"ocean",shark:"ocean",seahorse:"ocean",
+  starfish:"ocean",butterfly:"field",bee:"field",ladybug:"field",ant:"field",bird:"forest",camel:"desert",
+  cheetah:"savanna"
+};
+function pickScenes(q){
+  q=(q||"").toLowerCase();
+  const score={ocean:0,space:0,mountains:0,forest:0,city:0,winter:0,desert:0,jungle:0,field:0,beach:0,savanna:0,farm:0,pond:0,oasis:0,volcano:0,tundra:0};
+  const dict={
+    ocean:["океан","море","дельфин","рафт","риф","подвод","кит","вода","морск","sea","ocean","wave","water","dolphin","whale"],
+    beach:["пляж","побереж","beach","берег","песок у мор"],
+    space:["космос","звезд","планет","галактик","лун","туман","вселенн","space","star","planet","galaxy","moon","nebula","марс","ракет"],
+    mountains:["горы","гора","горн","скал","вершин","холм","альп","mountain","peak","cliff","альпы","горная","горный"],
+    volcano:["вулкан","лав","volcano","изверж"],
+    forest:["лес","дерев","ель","сосн","чан","чащ","дуб","forest","tree","wood","рощ"],
+    jungle:["джунгл","тропич","jungle","пальм джунг","экзотич"],
+    city:["город","мегаполис","неон","улиц","cyber","urban","city","neon","улица","здани","дом","дорог","автобус","машин"],
+    field:["поле","луг","степ","field","meadow","лаванд","тюльпан","trава"],
+    desert:["пустын","дюн","песок","desert","sand","dune","сахар"],
+    savanna:["саванн","сavanna","savanna","анаконда"],
+    winter:["снег","зим","мороз","метел","лед","вьюга","снежн","snow","winter","ice","frost"],
+    tundra:["тундр","tundra","вечная мерзлот"],
+    farm:["ферм","деревн","farm","хлев","коровник","хутор"],
+    pond:["пруд","озер","завод","пруд","pond","lake","озерц","лиман"],
+    oasis:["оазис","oasis","пальмы у воды","источник у оас"]
+  };
+  const char=pickCharacter(q);
+  const hasAnimal=char!=="none";
+  for(const k in dict) for(const w of dict[k]){ if(q.includes(w)) score[k]+=3; }
+  // животное: локация по умолчанию из ANIMAL_HOME, если место не указано явно
+  if(hasAnimal&&ANIMAL_HOME[char]){
+    const home=ANIMAL_HOME[char];
+    const explicitPlaces=["океан","море","космос","space","лес","forest","гор","mountain","город","city","снег","winter","пустын","desert","джунгл","jungle","поле","field","пляж","beach","улиц","дорог","саванн","savanna","ферм","farm","пруд","pond","озеро","lake","оазис","oasis","вулкан","volcano","тундр","tundra"];
+    const placeGiven=explicitPlaces.some(w=>q.includes(w));
+    if(!placeGiven) score[home]+=6;
+  }
+  const keys=Object.keys(score).sort((a,b)=>score[b]-score[a]);
+  const hot=keys.filter(k=>score[k]>0);
+  if(hot.length===0) return ["city","forest","ocean","space"];
+  // сцены: главная по выбранной, плюс разнообразие (остальные топ-сцены)
+  const n=Math.min(4,Math.max(2,hot.length));
+  return hot.slice(0,n);
+}
+
+// ================== 2D ДВИЖОК ==================
+// каждая сцена: {title,emoji,caption, draw(t,dt)}
+const scenes={};
+let seq=[],cur=null;
+let tGlobal=0;
+
+// --- ОКЕАН ---
+scenes.ocean={title:"Океан",emoji:"🌊",caption:"Волны на закате",
+draw(t,dt){
+  // небо
+  const sky=ctx.createLinearGradient(0,0,0,H*0.62);
+  sky.addColorStop(0,"#ff9d5c");sky.addColorStop(0.5,"#ffc98a");sky.addColorStop(1,"#ff7d9c");
+  ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
+  // солнце
+  const sunX=W*0.5,sunY=H*0.30;
+  const sun=ctx.createRadialGradient(sunX,sunY,10,sunX,sunY,120);
+  sun.addColorStop(0,"rgba(255,255,220,0.95)");sun.addColorStop(1,"rgba(255,200,120,0)");
+  ctx.fillStyle=sun;ctx.beginPath();ctx.arc(sunX,sunY,120,0,7);ctx.fill();
+  // море
+  const hh=H*0.62;
+  const sea=ctx.createLinearGradient(0,hh,0,H);
+  sea.addColorStop(0,"#2a6ea8");sea.addColorStop(1,"#0a2a4d");
+  ctx.fillStyle=sea;ctx.fillRect(0,hh,W,H-hh);
+  // волны (двигающиеся линии)
+  for(let i=0;i<14;i++){
+    const y=hh+8+i*((H-hh-20)/14);
+    const off=t* (0.4+i*0.03);
+    ctx.strokeStyle=`rgba(255,255,255,${0.30-i*0.015})`;
+    ctx.lineWidth=2;
+    ctx.beginPath();
+    for(let x=0;x<=W;x+=6){
+      const yy=y+Math.sin(x*0.02+off+i*1.3)*(7+i*1.5);
+      x===0?ctx.moveTo(x,yy):ctx.lineTo(x,yy);
+    }
+    ctx.stroke();
+  }
+  // блики
+  for(let i=0;i<16;i++){
+    const bx=W*(0.12+0.76*Math.sin(i*6.7+t*0.4));
+    const by=hh+10+i*((H-hh-30)/16);
+    const g=ctx.createRadialGradient(bx,by,0,bx,by,18);
+    g.addColorStop(0,"rgba(255,255,255,0.6)");g.addColorStop(1,"rgba(255,255,255,0)");
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(bx,by,18,0,7);ctx.fill();
+  }
+  // морские животные (все из запроса)
+  const waterChars=(this.chars&&this.chars.length)?this.chars:(this.char&&this.char!=="none"?[this.char]:[]);
+  const wc=waterChars.filter(c=>["dolphin","whale","fish","crab","octopus","shark","squid","jellyfish","seahorse","seal","starfish","turtle"].indexOf(c)>=0);
+  if(wc.length){
+    for(let i=0;i<wc.length;i++){
+      const mx=W*(0.25+0.5*((i+0.5)/wc.length))+Math.sin(t*1.2+i)*10;
+      const my=hh+55+Math.sin(t*1.5+i*2)*16;
+      drawAnimal(wc[i], mx, my);
+    }
+  }
+}};
+
+// --- КОСМОС ---
+scenes.space={title:"Космос",emoji:"🌌",caption:"Планета с кольцом",
+draw(t,dt){
+  ctx.fillStyle="#04060f";ctx.fillRect(0,0,W,H);
+  // туманности
+  const n1=ctx.createRadialGradient(W*0.3,H*0.35,0,W*0.3,H*0.35,300);
+  n1.addColorStop(0,"rgba(150,80,220,0.3)");n1.addColorStop(1,"rgba(150,80,220,0)");
+  ctx.fillStyle=n1;ctx.fillRect(0,0,W,H);
+  const n2=ctx.createRadialGradient(W*0.85,H*0.6,0,W*0.85,H*0.6,260);
+  n2.addColorStop(0,"rgba(60,150,255,0.25)");n2.addColorStop(1,"rgba(60,150,255,0)");
+  ctx.fillStyle=n2;ctx.fillRect(0,0,W,H);
+  // звёзды
+  for(let i=0;i<140;i++){
+    const x=(i*197)%W,y=(i*317)%H;
+    const tw=0.5+0.5*Math.sin(t*2+i*0.3);
+    ctx.fillStyle=`rgba(255,255,255,${0.25+0.75*tw})`;
+    ctx.fillRect(x,y,2,2);
+  }
+  // планета (шар с градиентом)
+  const px=W*0.7,py=H*0.42,pr=130;
+  const pg=ctx.createRadialGradient(px-45,py-45,15,px,py,pr);
+  pg.addColorStop(0,"#9cc0ff");pg.addColorStop(0.4,"#3a6fd0");pg.addColorStop(1,"#0e2145");
+  ctx.fillStyle=pg;ctx.beginPath();ctx.arc(px,py,pr,0,7);ctx.fill();
+  // кольцо
+  ctx.strokeStyle="rgba(220,200,150,0.8)";ctx.lineWidth=16;
+  ctx.beginPath();ctx.ellipse(px,py,pr*1.9,pr*0.5,-0.35,0,7);ctx.stroke();
+  ctx.strokeStyle="rgba(255,230,180,0.6)";ctx.lineWidth=5;
+  ctx.beginPath();ctx.ellipse(px,py,pr*1.3,pr*0.34,-0.35,0,7);ctx.stroke();
+  // затенение передней части кольца
+  ctx.save();ctx.fillStyle="rgba(4,6,15,0.35)";ctx.beginPath();ctx.ellipse(px,py,pr*1.9,pr*0.5,-0.35,Math.PI,Math.PI*2);ctx.fill();ctx.restore();
+}};
+
+// --- ГОРЫ ---
+scenes.mountains={title:"Горы",emoji:"⛰",caption:"Снежные вершины",
+draw(t,dt){
+  const sky=ctx.createLinearGradient(0,0,0,H);
+  sky.addColorStop(0,"#7fb0ff");sky.addColorStop(0.5,"#9fd4ff");sky.addColorStop(1,"#e8f4ff");
+  ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
+  // задний хребет
+  mountain([W*0.2,260],[W*0.85,180],H,"#5a6e8a",t*0.0);
+  // передний хребет
+  mountain([W*0.0,320],[W,300],H,"#35475e",t*0.0);
+  // белые вершины
+  drawPeak(W*0.22,258,"#ffffff");
+  drawPeak(W*0.55,280,"#eef3fa");
+  drawPeak(W*0.82,235,"#ffffff");
+  // снежная шапка главной
+  const tree=ctx.createLinearGradient(0,0,0,H*0.5);
+  tree.addColorStop(0,"#ffffff");tree.addColorStop(1,"#d8e6f2");
+  ctx.fillStyle=tree;
+  ctx.beginPath();ctx.moveTo(W*0.55,240);ctx.lineTo(W*0.62,275);ctx.lineTo(W*0.48,275);ctx.closePath();ctx.fill();
+  // лёгкие облака
+  ctx.fillStyle="rgba(255,255,255,0.5)";
+  ctx.beginPath();ctx.arc(W*0.15,(240+t*4)%H%80+120,22,0,7);ctx.arc(W*0.18,(240+t*4)%80+128,16,0,7);ctx.fill();
+  function mountain(xs,ys,w,col,spd){
+    ctx.fillStyle=col;
+    ctx.beginPath();ctx.moveTo(xs[0]-200,ys[0]+200);
+    ctx.lineTo(xs[0],ys[0]);
+    ctx.lineTo(xs[1],ys[1]);
+    ctx.lineTo(xs[1]+200,ys[1]+200);
+    ctx.closePath();ctx.fill();
+  }
+  function drawPeak(x,y,col){ctx.fillStyle=col;ctx.beginPath();ctx.moveTo(x-40,y);ctx.lineTo(x,y-22);ctx.lineTo(x+40,y);ctx.closePath();ctx.fill();}
+}};
+
+// --- ЛЕС ---
+scenes.forest={title:"Лес",emoji:"🌲",caption:"Деревья в лучах",
+draw(t,dt){
+  const sky=ctx.createLinearGradient(0,0,0,H);
+  sky.addColorStop(0,"#3a6a8a");sky.addColorStop(1,"#6a9a6a");
+  ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
+  // солнце
+  const sx=W*0.5,sy=0;
+  // лучи
+  for(let i=-4;i<=4;i++){
+    ctx.strokeStyle=`rgba(255,255,180,${0.12*Math.max(0,1-Math.abs(i)*0.2)})`;
+    ctx.lineWidth=26;
+    ctx.beginPath();ctx.moveTo(sx+i*26,sy);ctx.lineTo(sx+i*150+i*20,H);ctx.stroke();
+  }
+  // земля
+  const g=ctx.createLinearGradient(0,H*0.55,0,H);
+  g.addColorStop(0,"#3d5a2f");g.addColorStop(1,"#24401c");
+  ctx.fillStyle=g;ctx.fillRect(0,H*0.55,W,H*0.45);
+  // деревья (дальние светлее)
+  for(let layer=0;layer<2;layer++){
+    for(let i=0;i<12;i++){
+      const depth=layer; // 0 дальние,1 ближние
+      const x=(i*(W/12+10)+((i*47)%30))+ (depth?0:8);
+      const baseY=H*(depth?0.6:0.72);
+      const hTree=(depth?90:130)+((i*23)%40);
+      const col=depth?"rgba(30,90,50,":"rgba(20,70,40,";
+      ctx.fillStyle=col+"0.9)";
+      // ствол
+      ctx.fillStyle=col+"0.9)";
+      ctx.fillRect(x-7,baseY-hTree*0.3,14,hTree*0.3+20);
+      // крона (3 яруса)
+      ctx.fillStyle=col+"0.85)";
+      for(let k=0;k<3;k++){
+        const cx=XTree(x,i,k),cy=baseY-hTree*0.3- (k*16) - hTree*0.05;
+        ctx.beginPath();ctx.arc(cx,cy,hTree*0.18*(3-k)*0.6,0,7);ctx.fill();
+      }
+    }
+  }
+  // трава
+  for(let i=0;i<70;i++){
+    const x=(i*73)%W,baseY=H*0.68+((i*37)%(H*0.3));
+    const sway=Math.sin(t*2+i)*4;
+    ctx.strokeStyle="rgba(60,140,70,0.6)";ctx.lineWidth=2;
+    ctx.beginPath();ctx.moveTo(x,baseY);ctx.lineTo(x+sway,baseY-16);ctx.stroke();
+  }
+  // животные в лесу (все из запроса)
+  const chars=(this.chars&&this.chars.length)?this.chars:(this.char&&this.char!=="none"?[this.char]:[]);
+  if(chars.length){ drawRow(chars, t, H*0.80, W); }
+  function XTree(x,i,k){return x+Math.sin(i*7+k*2)*10;}
+}};
+
+// --- ГОРОД ---
+scenes.city={title:"Город",emoji:"🏙",caption:"Изометрический городок",
+draw(t,dt){
+  // голубое небо (изо-стиль как на картинке)
+  const sky=ctx.createLinearGradient(0,0,0,H);
+  sky.addColorStop(0,"#bfe4ff");sky.addColorStop(0.6,"#7ec8f0");sky.addColorStop(1,"#3a7cc0");
+  ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
+  // белые упрощённые облака
+  for(let i=0;i<4;i++){
+    const cx=(i*360+((t*8)%50))%(W+200)-100;
+    const cy=70+((i*47)%120);
+    ctx.fillStyle="rgba(255,255,255,0.75)";
+    ctx.beginPath();ctx.arc(cx,cy,26,0,7);ctx.arc(cx+30,cy-8,34,0,7);ctx.arc(cx+62,cy,26,0,7);ctx.fill();
+  }
+  // лёгкое покачивание камеры (эффект живого видео)
+  ctx.save();
+  ctx.translate(0, Math.sin(t*1.2)*5);
+  ctx.translate(Math.sin(t*0.8)*4, 0);
+  // площадка-основание (изо ромб)
+  isoBase(0);
+  // центральный небоскрёб — серая призма (как на картинке)
+  isoBuilding(W/2, H*0.86, 200, "#8a8a96");
+  // боковые дома — призмы, цилиндры, конусы, тёплые тона
+  const warm=["#d97a4a","#e8b45c","#c8783a","#a06a3a","#e0a050","#b06030"];
+  const place=[[W*0.14,H*0.9,90],[W*0.32,H*0.88,120],[W*0.62,H*0.88,110],[W*0.8,H*0.9,95],[W*0.06,H*0.86,70],[W*0.9,H*0.86,80]];
+  place.forEach(function(p,idx){
+    const col=warm[idx%warm.length];
+    if(idx%3===0){ isoTower(p[0],p[1],p[2],col); }
+    else if(idx%3===1){ isoCylinder(p[0],p[1],p[2]*0.4,col); }
+    else { isoCone(p[0],p[1],p[2], col); }
+  });
+  // шарообразные деревья (зелёные сферы) вокруг
+  isoTree(W*0.2,H*0.78,40,"#6aa84f");
+  isoTree(W*0.88,H*0.8,34,"#74b052");
+  isoTree(W*0.72,H*0.82,30,"#5f9a45");
+  // персонажи: все животные в изо-городе
+  const chars=(this.chars&&this.chars.length)?this.chars:(this.char&&this.char!=="none"?[this.char]:[]);
+  if(chars.length){
+    drawRow(chars, t, H*0.84, W);
+  }
+  ctx.restore();
+}};
+// рисует несколько животных в ряд внизу сцены
+function drawRow(chars,t,baseY,Wd){
+  const n=chars.length;
+  for(let i=0;i<n;i++){
+    const x=(Wd/(n+1))*(i+1)+Math.sin(t+i*2)*6;
+    const type=chars[i];
+    if(type==="bird"||type==="owl"||type==="butterfly"||type==="bee"||type==="eagle"||type==="parrot"){
+      const by=baseY-120+Math.sin(t*3+i*2)*30;
+      drawAnimal(type, x, by);
+    } else {
+      drawAnimal(type, x, baseY);
+    }
+  }
+}
+// ---- изометрические low-poly примитивы ----
+function isoBox(cx,baseY,size){
+  // упрощённый изо-куб с розовым/тёплым верхом
+  const s=size/2;
+  // низ (тень)
+  ctx.save();
+  ctx.translate(cx,baseY);
+  // верхняя грань (ромб)
+  ctx.fillStyle="#6a6a76";
+  ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(s,-s/2);ctx.lineTo(0,-s);ctx.lineTo(-s,-s/2);ctx.closePath();ctx.fill();
+  ctx.restore();
+}
+function isoBase(cx){
+  // земля — изометрический ромб
+  ctx.fillStyle="#8a9a7a";
+  ctx.beginPath();ctx.moveTo(W/2,H*0.70);ctx.lineTo(W/2+W*0.28,H*0.80);ctx.lineTo(W/2,H*0.90);ctx.lineTo(W/2-W*0.28,H*0.80);ctx.closePath();ctx.fill();
+  ctx.fillStyle="#6a7a5a";
+  ctx.beginPath();ctx.moveTo(W/2,H*0.78);ctx.lineTo(W/2+W*0.22,H*0.80);ctx.lineTo(W/2+W*0.28,H*0.80);ctx.lineTo(W/2,H*0.90);ctx.lineTo(W/2-W*0.28,H*0.80);ctx.lineTo(W/2-W*0.22,H*0.80);ctx.closePath();ctx.fill();
+}
+function isoBuilding(cx,baseY,h,col){
+  const w=46;
+  // правая боковая грань (тень — темнее)
+  ctx.fillStyle=darken(col);
+  ctx.beginPath();ctx.moveTo(cx+w,baseY);ctx.lineTo(cx+w,baseY-h);ctx.lineTo(cx+w+w*0.4,baseY-h-w*0.6);ctx.lineTo(cx+w+w*0.4,baseY-w*0.6);ctx.closePath();ctx.fill();
+  // передняя грань
+  ctx.fillStyle=col;
+  ctx.beginPath();ctx.moveTo(cx-w,baseY);ctx.lineTo(cx-w,baseY-h);ctx.lineTo(cx+w,baseY-h);ctx.lineTo(cx+w,baseY);ctx.closePath();ctx.fill();
+  // верх (ромб) светлый
+  ctx.fillStyle=lighten(col);
+  ctx.beginPath();ctx.moveTo(cx-w,baseY-h);ctx.lineTo(cx,baseY-h-w*0.6);ctx.lineTo(cx+w,baseY-h);ctx.lineTo(cx,baseY-h+w*0.6);ctx.closePath();ctx.fill();
+  // окна-паттерн
+  ctx.fillStyle="#d8e4f0";
+  for(let r=0;r<Math.floor(h/22);r++)for(let c=-3;c<=3;c++){
+    ctx.fillRect(cx+c*10-3,baseY-h+12+r*20-4,5,8);
+  }
+}
+function isoTower(cx,baseY,h,col){
+  const w=30;
+  ctx.fillStyle=col;
+  ctx.beginPath();ctx.moveTo(cx-w,baseY);ctx.lineTo(cx-w,baseY-h);ctx.lineTo(cx+w,baseY-h);ctx.lineTo(cx+w,baseY);ctx.closePath();ctx.fill();
+  ctx.fillStyle=lighten(col);
+  ctx.beginPath();ctx.moveTo(cx-w,baseY-h);ctx.lineTo(cx,baseY-h-w*0.5);ctx.lineTo(cx+w,baseY-h);ctx.lineTo(cx,baseY-h+w*0.5);ctx.closePath();ctx.fill();
+  ctx.fillStyle="rgba(255,255,255,0.7)";
+  for(let r=0;r<Math.floor(h/20);r++){ctx.fillRect(cx-14,baseY-h+8+r*16-3,4,6);}
+}
+function isoCylinder(cx,baseY,r,col){
+  ctx.fillStyle=lighten(col);
+  ctx.beginPath();ctx.ellipse(cx,baseY,r,r*0.5,0,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle=col;
+  ctx.fillRect(cx-r,baseY-r*0.5,r*2,r*0.8);
+  ctx.fillStyle=lighten(col);
+  ctx.beginPath();ctx.ellipse(cx,baseY-r*0.55,r,r*0.4,0,0,Math.PI*2);ctx.fill();
+}
+function isoCone(cx,baseY,h,col){
+  ctx.fillStyle=col;
+  ctx.beginPath();ctx.moveTo(cx-h*0.4,baseY);ctx.lineTo(cx,baseY-h);ctx.lineTo(cx+h*0.4,baseY);ctx.closePath();ctx.fill();
+  ctx.fillStyle="#d8e4f0";
+  ctx.beginPath();ctx.ellipse(cx,baseY,h*0.4,h*0.16,0,0,Math.PI*2);ctx.fill();
+}
+function isoTree(cx,baseY,r,col){
+  // шарообразная крона
+  ctx.fillStyle=lighten(col);
+  ctx.beginPath();ctx.ellipse(cx,baseY,r*1.4,r*0.5,0,0,Math.PI*2);ctx.fill();// тень
+  ctx.fillStyle=col;
+  ctx.beginPath();ctx.arc(cx,baseY-r,r,0,7);ctx.fill();
+  ctx.fillStyle=lighten(col);
+  ctx.beginPath();ctx.arc(cx-r*0.4,baseY-r*1.2,r*0.5,0,7);ctx.fill();
+}
+function lighten(h){
+  const m=document.createElement("canvas");const c2=m.getContext("2d");
+  c2.fillStyle=h;c2.fillRect(0,0,1,1);
+  const d=c2.getImageData(0,0,1,1).data;
+  return "rgb("+Math.min(255,d[0]+30)+","+Math.min(255,d[1]+30)+","+Math.min(255,d[2]+30)+")";
+}
+function darken(h){
+  const m=document.createElement("canvas");const c2=m.getContext("2d");
+  c2.fillStyle=h;c2.fillRect(0,0,1,1);
+  const d=c2.getImageData(0,0,1,1).data;
+  return "rgb("+Math.max(0,d[0]-35)+","+Math.max(0,d[1]-35)+","+Math.max(0,d[2]-35)+")";
+}
+// мультяшный кот/собака на 2 ногах лапами
+function drawCat(x,y,isCat){
+  const s=isCat?1:1.1;
+  ctx.save();ctx.translate(x,y);ctx.scale(s,s);
+  const bob=Math.sin(tGlobal*10)*2;
+  // хвост
+  ctx.strokeStyle=isCat?"#ff9d45":"#a0602a";ctx.lineWidth=8;ctx.lineCap="round";
+  ctx.beginPath();ctx.moveTo(-22,-10);ctx.quadraticCurveTo(-34,-16+Math.sin(tGlobal*6)*6,-30,-26);ctx.stroke();
+  // тело
+  ctx.fillStyle=isCat?"#ffb66a":"#c98d4e";
+  ctx.beginPath();ctx.ellipse(0,-18-bob,20,26,0,0,7);ctx.fill();
+  // голова
+  ctx.fillStyle=isCat?"#ffc98f":"#d9a468";
+  ctx.beginPath();ctx.arc(0,-46-bob,20,0,7);ctx.fill();
+  // ушки
+  ctx.fillStyle=isCat?"#ff9d45":"#a0602a";
+  if(isCat){
+    ctx.beginPath();ctx.moveTo(-14,-52-bob);ctx.lineTo(-10,-68-bob);ctx.lineTo(-4,-52-bob);ctx.closePath();ctx.fill();
+    ctx.beginPath();ctx.moveTo(14,-52-bob);ctx.lineTo(10,-68-bob);ctx.lineTo(4,-52-bob);ctx.closePath();ctx.fill();
+  }else{
+    ctx.beginPath();ctx.moveTo(-14,-50-bob);ctx.lineTo(-18,-66-bob);ctx.lineTo(-4,-50-bob);ctx.closePath();ctx.fill();
+    ctx.beginPath();ctx.moveTo(14,-50-bob);ctx.lineTo(18,-66-bob);ctx.lineTo(4,-50-bob);ctx.closePath();ctx.fill();
+  }
+  // глаза
+  ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(-7,-48-bob,6,0,7);ctx.arc(7,-48-bob,6,0,7);ctx.fill();
+  ctx.fillStyle="#1a1a2e";ctx.beginPath();ctx.arc(-7,-48-bob,3,0,7);ctx.arc(7,-48-bob,3,0,7);ctx.fill();
+  // нос
+  ctx.fillStyle="#e0566b";ctx.beginPath();ctx.arc(0,-42-bob,4,0,7);ctx.fill();
+  ctx.strokeStyle="#e0566b";ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(-3,-40-bob);ctx.lineTo(0,-38-bob);ctx.lineTo(3,-40-bob);ctx.stroke();
+  // лапки
+  ctx.strokeStyle=isCat?"#e6984a":"#a0602a";ctx.lineWidth=6;ctx.lineCap="round";
+  const lx=Math.sin(tGlobal*8)*6;
+  ctx.beginPath();ctx.moveTo(-12,4-bob);ctx.lineTo(-14+lx,18);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(12,4-bob);ctx.lineTo(14-lx,18);ctx.stroke();
+  ctx.restore();
+}
+function drawBird(x,y){
+  ctx.save();ctx.translate(x,y);
+  const flap=Math.sin(tGlobal*14)*0.5;
+  // тело
+  ctx.fillStyle="#5fd0ff";ctx.beginPath();ctx.ellipse(0,0,18,12,0,0,7);ctx.fill();
+  // крылья
+  ctx.fillStyle="#2fa0d0";ctx.beginPath();ctx.moveTo(-6,-2);ctx.quadraticCurveTo(-22,-6-flap*14,-10,-2);ctx.quadraticCurveTo(-20,6+flap*14,-4,2);ctx.closePath();ctx.fill();
+  // голова
+  ctx.fillStyle="#5fd0ff";ctx.beginPath();ctx.arc(18,-6,9,0,7);ctx.fill();
+  // клюв
+  ctx.fillStyle="#ffcf4d";ctx.beginPath();ctx.moveTo(26,-6);ctx.lineTo(34,-4);ctx.lineTo(26,-3);ctx.closePath();ctx.fill();
+  // глаз
+  ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(21,-8,3,0,7);ctx.fill();
+  ctx.fillStyle="#111";ctx.beginPath();ctx.arc(22,-8,1.5,0,7);ctx.fill();
+  ctx.restore();
+}
+// универсальный рисовальщик животных: drawAnimal(type,x,y) — ноги на земле
+function drawAnimal(type,x,y){
+  const s=(x,y)=>{ctx.save();ctx.translate(x,y);};
+  // мягкая тень под животным — даёт ощущение глубины/объёма
+  const sh=ctx.createRadialGradient(x,y,2,x,y,34);
+  sh.addColorStop(0,"rgba(0,0,0,0.35)");sh.addColorStop(1,"rgba(0,0,0,0)");
+  ctx.save();ctx.fillStyle=sh;ctx.beginPath();ctx.ellipse(x,y,34,12,0,0,7);ctx.fill();ctx.restore();
+  switch(type){
+    case "bear": case "медведь": { s(x,y); ctx.scale(1.2,1.2);
+      ctx.fillStyle="#6b4a2f";ctx.beginPath();ctx.ellipse(0,-28,26,24,0,0,7);ctx.fill(); // тулово
+      ctx.beginPath();ctx.arc(0,-50,18,0,7);ctx.fill(); // голова
+      ctx.fillStyle="#3d2a18";ctx.beginPath();ctx.arc(-8,-54,4,0,7);ctx.arc(8,-54,4,0,7);ctx.fill(); // уши
+      ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(-6,-50,4,0,7);ctx.arc(6,-50,4,0,7);ctx.fill();
+      ctx.fillStyle="#111";ctx.beginPath();ctx.arc(-6,-50,2,0,7);ctx.arc(6,-50,2,0,7);ctx.fill();
+      ctx.fillStyle="#111";ctx.beginPath();ctx.arc(0,-45,5,0,7);ctx.fill();
+      ctx.strokeStyle="#2a1a0e";ctx.lineWidth=5;ctx.lineCap="round";
+      ctx.beginPath();ctx.moveTo(-16,-16);ctx.lineTo(-16+Math.sin(tGlobal*6)*4,0);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(16,-16);ctx.lineTo(16-Math.sin(tGlobal*6)*4,0);ctx.stroke();
+      ctx.fillStyle="#6b4a2f";ctx.beginPath();ctx.arc(-18,-14,7,0,7);ctx.arc(18,-14,7,0,7);ctx.fill(); // лапы
+      ctx.restore(); break; }
+    case "bunny": case "заяц": { s(x,y); ctx.scale(1.1,1.1);
+      ctx.fillStyle="#dcd7d1";
+      ctx.beginPath();ctx.ellipse(0,-22,18,20,0,0,7);ctx.fill();
+      ctx.beginPath();ctx.arc(0,-40,14,0,7);ctx.fill();
+      // уши
+      ctx.beginPath();ctx.ellipse(-7,-58,5,16,0,0,7);ctx.ellipse(7,-58,5,16,0,0,7);ctx.fill();
+      ctx.fillStyle="#f3a7b3";ctx.beginPath();ctx.ellipse(-7,-58,2.6,11,0,0,7);ctx.ellipse(7,-58,2.6,11,0,0,7);ctx.fill();
+      ctx.fillStyle="#ff6b87";ctx.beginPath();ctx.arc(-6,-40,3,0,7);ctx.arc(6,-40,3,0,7);ctx.fill();
+      ctx.fillStyle="#111";ctx.beginPath();ctx.arc(-6,-40,1.8,0,7);ctx.arc(6,-40,1.8,0,7);ctx.fill();
+      ctx.fillStyle="#111";ctx.beginPath();ctx.arc(0,-36,3,0,7);ctx.fill();
+      ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(0,-35,1.5,0,7);ctx.fill();
+      ctx.fillStyle="#dcd7d1";ctx.beginPath();ctx.arc(-12,-6,6,0,7);ctx.arc(12,-6,6,0,7);ctx.fill();
+      ctx.restore(); break; }
+    case "penguin": case "пингвин": { s(x,y); ctx.scale(1.1,1.1);
+      ctx.fillStyle="#1a1a2e";ctx.beginPath();ctx.ellipse(0,-20,18,24,0,0,7);ctx.fill();
+      ctx.fillStyle="#f4f4f4";ctx.beginPath();ctx.ellipse(0,-26,12,14,0,0,7);ctx.fill();
+      ctx.fillStyle="#1a1a2e";ctx.beginPath();ctx.arc(0,-38,13,0,7);ctx.fill();
+      ctx.fillStyle="#fff";ctx.beginPath();ctx.ellipse(0,-38,8,9,0,0,7);ctx.fill();
+      ctx.fillStyle="#ff9d00";ctx.beginPath();ctx.moveTo(0,-33);ctx.lineTo(8,-35);ctx.lineTo(0,-43);ctx.closePath();ctx.fill();
+      ctx.fillStyle="#111";ctx.beginPath();ctx.arc(-4,-41,2,0,7);ctx.arc(4,-41,2,0,7);ctx.fill();
+      ctx.fillStyle="#ff9d00";ctx.beginPath();ctx.arc(-12,-8,5,0,7);ctx.arc(12,-8,5,0,7);ctx.fill();
+      ctx.restore(); break; }
+    case "tiger": case "тигр": { s(x,y); ctx.scale(1.3,1.3);
+      ctx.fillStyle="#ff9d2e";ctx.beginPath();ctx.ellipse(0,-22,24,18,0,0,7);ctx.fill();
+      ctx.fillStyle="#1a1408";ctx.lineWidth=5;
+      for(let i=-2;i<=2;i++){ctx.beginPath();ctx.moveTo(i*9,-30);ctx.lineTo(i*7,-8);ctx.stroke();}
+      ctx.fillStyle="#ff9d2e";ctx.beginPath();ctx.arc(0,-40,16,0,7);ctx.fill();
+      // уши
+      ctx.beginPath();ctx.arc(-10,-52,7,0,7);ctx.arc(10,-52,7,0,7);ctx.fill();
+      ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(-6,-42,4,0,7);ctx.arc(6,-42,4,0,7);ctx.fill();
+      ctx.fillStyle="#111";ctx.beginPath();ctx.arc(-6,-42,2,0,7);ctx.arc(6,-42,2,0,7);ctx.fill();
+      ctx.fillStyle="#b0601a";ctx.beginPath();ctx.arc(0,-38,3,0,7);ctx.fill();
+      ctx.strokeStyle="#1a1408";ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(-14,-18);ctx.lineTo(-16,0);ctx.stroke();ctx.beginPath();ctx.moveTo(14,-18);ctx.lineTo(16,0);ctx.stroke();
+      ctx.restore(); break; }
+    case "fox": case "лиса": { s(x,y); ctx.scale(1.15,1.15);
+      ctx.fillStyle="#e86a1f";ctx.beginPath();ctx.ellipse(0,-22,20,18,0,0,7);ctx.fill();
+      ctx.beginPath();ctx.arc(0,-40,15,0,7);ctx.fill();
+      ctx.fillStyle="#e86a1f";ctx.beginPath();ctx.moveTo(-10,-50);ctx.lineTo(-18,-66);ctx.lineTo(-5,-52);ctx.closePath();ctx.fill();
+      ctx.beginPath();ctx.moveTo(10,-50);ctx.lineTo(18,-66);ctx.lineTo(5,-52);ctx.closePath();ctx.fill();
+      ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(-5,-42,4,0,7);ctx.arc(5,-42,4,0,7);ctx.fill();
+      ctx.fillStyle="#111";ctx.beginPath();ctx.arc(-5,-42,2,0,7);ctx.arc(5,-42,2,0,7);ctx.fill();
+      ctx.fillStyle="#111";ctx.beginPath();ctx.moveTo(-2,-38);ctx.lineTo(2,-38);ctx.lineTo(0,-35);ctx.closePath();ctx.fill();
+      ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(-15,-10,6,0,7);ctx.arc(15,-10,6,0,7);ctx.fill();
+      ctx.fillStyle="#fff";ctx.beginPath();ctx.moveTo(-12,-14);ctx.quadraticCurveTo(-26,-20,-30,-12);ctx.quadraticCurveTo(-20,-8,-12,-8);ctx.closePath();ctx.fill();
+      ctx.restore(); break; }
+    case "owl": case "сова": { s(x,y); ctx.scale(1.2,1.2);
+      ctx.fillStyle="#7a5a34";ctx.beginPath();ctx.ellipse(0,-22,20,22,0,0,7);ctx.fill();
+      ctx.beginPath();ctx.arc(0,-40,17,0,7);ctx.fill();
+      ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(-7,-42,7,0,7);ctx.arc(7,-42,7,0,7);ctx.fill();
+      ctx.fillStyle="#e86a1f";ctx.beginPath();ctx.arc(-7,-42,5,0,7);ctx.arc(7,-42,5,0,7);ctx.fill();
+      ctx.fillStyle="#111";ctx.beginPath();ctx.arc(-7,-42,2.5,0,7);ctx.arc(7,-42,2.5,0,7);ctx.fill();
+      ctx.fillStyle="#ff9d00";ctx.beginPath();ctx.moveTo(-4,-36);ctx.lineTo(4,-36);ctx.lineTo(0,-32);ctx.closePath();ctx.fill();
+      // крылья
+      ctx.fillStyle="#5a3a1a";ctx.beginPath();ctx.moveTo(-16,-20);ctx.quadraticCurveTo(-26,-22,-26,0);ctx.closePath();ctx.fill();
+      ctx.beginPath();ctx.moveTo(16,-20);ctx.quadraticCurveTo(26,-22,26,0);ctx.closePath();ctx.fill();
+      ctx.restore(); break; }
+    case "dolphin": case "дельфин": { s(x,y); ctx.rotate(Math.sin(tGlobal*2)*0.1);
+      ctx.fillStyle="#4aa8e8";ctx.beginPath();
+      ctx.moveTo(-28,-8);ctx.quadraticCurveTo(-10,-26,8,-14);ctx.quadraticCurveTo(22,-6,32,-2);
+      ctx.quadraticCurveTo(20,6,22,14);ctx.quadraticCurveTo(10,0,2,6);ctx.quadraticCurveTo(-14,14,-24,4);ctx.closePath();ctx.fill();
+      ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(24,-4,3,0,7);ctx.fill();
+      ctx.fillStyle="#111";ctx.beginPath();ctx.arc(25,-4,1.6,0,7);ctx.fill();
+      ctx.fillStyle="#3a88c8";ctx.beginPath();ctx.moveTo(4,-14);ctx.quadraticCurveTo(-2,-28,4,-22);ctx.quadraticCurveTo(12,-28,14,-14);ctx.closePath();ctx.fill();
+      ctx.restore(); break; }
+    case "fish": case "рыба": { s(x,y); ctx.rotate(Math.sin(tGlobal*3)*0.2);
+      ctx.fillStyle="#ff9d5c";ctx.beginPath();ctx.ellipse(0,0,20,12,0,0,7);ctx.fill();
+      ctx.fillStyle="#ffcf6b";ctx.beginPath();ctx.moveTo(-18,-2);ctx.lineTo(-30,-12);ctx.lineTo(-28,6);ctx.closePath();ctx.fill();
+      ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(8,-3,4,0,7);ctx.fill();
+      ctx.fillStyle="#111";ctx.beginPath();ctx.arc(9,-3,2,0,7);ctx.fill();
+      ctx.restore(); break; }
+    case "crab": case "краб": { s(x,y);
+      ctx.fillStyle="#e8563a";ctx.beginPath();ctx.ellipse(0,0,22,14,0,0,7);ctx.fill();
+      // клешни
+      ctx.strokeStyle="#e8563a";ctx.lineWidth=5;ctx.lineCap="round";
+      ctx.beginPath();ctx.moveTo(-18,-4);ctx.lineTo(-28,-14);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(18,-4);ctx.lineTo(28,-14);ctx.stroke();
+      ctx.fillStyle="#ff6b50";ctx.beginPath();ctx.arc(-28,-16,5,0,7);ctx.arc(28,-16,5,0,7);ctx.fill();
+      // глаза на стебельках
+      ctx.strokeStyle="#e8563a";ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(-8,-8);ctx.lineTo(-8,-16);ctx.stroke();ctx.beginPath();ctx.moveTo(8,-8);ctx.lineTo(8,-16);ctx.stroke();
+      ctx.fillStyle="#111";ctx.beginPath();ctx.arc(-8,-18,3,0,7);ctx.arc(8,-18,3,0,7);ctx.fill();
+      // ножки
+      ctx.strokeStyle="#c04020";ctx.lineWidth=3;
+      for(let i=0;i<4;i++){ctx.beginPath();ctx.moveTo(-16+i*9,4);ctx.lineTo(-12+i*9,10);ctx.stroke();ctx.beginPath();ctx.moveTo(6+i*9,4);ctx.lineTo(10+i*9,10);ctx.stroke();}
+      ctx.restore(); break; }
+    case "butterfly": case "бабочка": { s(x,y); ctx.rotate(Math.sin(tGlobal*8)*0.3);
+      ctx.fillStyle="#ff6bc9";ctx.beginPath();ctx.ellipse(0,0,16,10,0,0,7);ctx.fill();
+      ctx.fillStyle="#ff9df0";ctx.beginPath();ctx.arc(-14,-4,8,0,7);ctx.arc(-10,6,7,0,7);ctx.arc(14,4,8,0,7);ctx.arc(10,-7,7,0,7);ctx.fill();
+      ctx.fillStyle="#7a2a5a";ctx.beginPath();ctx.arc(-14,6,3,0,7);ctx.arc(12,4,3,0,7);ctx.fill();
+      ctx.fillStyle="#2a1a3a";ctx.beginPath();ctx.ellipse(0,-2,3,10,0,0,7);ctx.fill();
+      ctx.strokeStyle="#2a1a3a";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(0,7);ctx.lineTo(0,16);ctx.stroke();
+      ctx.restore(); break; }
+    case "elephant": case "слон": { s(x,y); ctx.scale(1.4,1.4);
+      ctx.fillStyle="#8a8a94";ctx.beginPath();ctx.ellipse(0,-22,30,22,0,0,7);ctx.fill();
+      ctx.beginPath();ctx.arc(0,-42,20,0,7);ctx.fill();
+      // хобот
+      ctx.strokeStyle="#8a8a94";ctx.lineWidth=7;ctx.lineCap="round";
+      ctx.beginPath();ctx.moveTo(14,-32);ctx.quadraticCurveTo(26,-20,22,-2);ctx.stroke();
+      // уши
+      ctx.fillStyle="#7a7a84";ctx.beginPath();ctx.arc(-18,-40,12,0,7);ctx.fill();
+      // бивни
+      ctx.fillStyle="#fff";ctx.beginPath();ctx.moveTo(8,-32);ctx.lineTo(16,-22);ctx.lineTo(6,-28);ctx.closePath();ctx.fill();
+      // глаза
+      ctx.fillStyle="#111";ctx.beginPath();ctx.arc(8,-44,3,0,7);ctx.arc(-4,-44,3,0,7);ctx.fill();
+      // ноги
+      ctx.strokeStyle="#7a7a84";ctx.lineWidth=7;ctx.beginPath();ctx.moveTo(-18,-6);ctx.lineTo(-20,0);ctx.stroke();ctx.beginPath();ctx.moveTo(-8,-6);ctx.lineTo(-6,0);ctx.stroke();ctx.beginPath();ctx.moveTo(8,-6);ctx.lineTo(6,0);ctx.stroke();ctx.beginPath();ctx.moveTo(18,-6);ctx.lineTo(20,0);ctx.stroke();
+      ctx.restore(); break; }
+    case "giraffe": case "жираф": { s(x,y); ctx.scale(1.05,1.05);
+      // шея
+      ctx.strokeStyle="#e8b45c";ctx.lineWidth=16;ctx.lineCap="round";
+      ctx.beginPath();ctx.moveTo(0,-30);ctx.lineTo(6,-70);ctx.stroke();
+      // пятна на шее
+      ctx.fillStyle="#c8903a";ctx.beginPath();ctx.arc(-2,-40,4,0,7);ctx.arc(4,-52,4,0,7);ctx.arc(-2,-62,4,0,7);ctx.fill();
+      // голова
+      ctx.fillStyle="#e8b45c";ctx.beginPath();ctx.ellipse(16,-72,9,7,0,0,7);ctx.fill();
+      ctx.beginPath();ctx.arc(24,-74,3,0,7);ctx.fill();// морда
+      ctx.fillStyle="#111";ctx.beginPath();ctx.arc(18,-74,2,0,7);ctx.fill();
+      // маленькие рожки
+      ctx.strokeStyle="#c8903a";ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(10,-78);ctx.lineTo(9,-84);ctx.stroke();
+      // туловище
+      ctx.fillStyle="#e8b45c";ctx.beginPath();ctx.ellipse(6,-26,22,20,0,0,7);ctx.fill();
+      // пятна на теле
+      ctx.fillStyle="#c8903a";
+      for(let i=0;i<6;i++){ctx.beginPath();ctx.arc(-2+i*8,-26+((i%2)*8+4),3,0,7);ctx.fill();}
+      // ноги длинные
+      ctx.strokeStyle="#d8a44c";ctx.lineWidth=6;ctx.beginPath();ctx.moveTo(-8,-12);ctx.lineTo(-10,4);ctx.stroke();ctx.beginPath();ctx.moveTo(2,-12);ctx.lineTo(4,4);ctx.stroke();ctx.beginPath();ctx.moveTo(12,-12);ctx.lineTo(12,4);ctx.stroke();
+      ctx.restore(); break; }
+    case "zebra": case "зебра": { s(x,y); ctx.scale(1.1,1.1);
+      ctx.fillStyle="#f4f4f4";ctx.beginPath();ctx.ellipse(0,-22,26,18,0,0,7);ctx.fill();
+      // полоски
+      ctx.strokeStyle="#222";ctx.lineWidth=5;
+      for(let i=0;i<4;i++){ctx.beginPath();ctx.moveTo(-14+i*9,-34);ctx.lineTo(-10+i*6,-10);ctx.stroke();}
+      ctx.fillStyle="#f4f4f4";ctx.beginPath();ctx.arc(0,-44,16,0,7);ctx.fill();
+      ctx.beginPath();ctx.arc(0,-52,11,0,7);ctx.fill();// ноздри
+      ctx.strokeStyle="#222";ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(-14,-40);ctx.lineTo(-6,-46);ctx.stroke();
+      ctx.fillStyle="#111";ctx.beginPath();ctx.arc(-5,-36,3,0,7);ctx.arc(5,-36,3,0,7);ctx.fill();
+      // грива
+      ctx.fillStyle="#222";ctx.beginPath();ctx.moveTo(-8,-52);ctx.lineTo(4,-56);ctx.lineTo(8,-50);ctx.fill();
+      ctx.restore(); break; }
+    case "lion": case "лев": { s(x,y); ctx.scale(1.25,1.25);
+      // ===== LOW-POLY ЛЕВ (оригами-стиль из многоугольников) =====
+      // туловище — трапеция
+      ctx.fillStyle="#d8a83a";ctx.beginPath();ctx.moveTo(-22,-28);ctx.lineTo(22,-28);ctx.lineTo(18,-2);ctx.lineTo(-18,-2);ctx.closePath();ctx.fill();
+      // тёмная нижняя грань туловища
+      ctx.fillStyle="#a8782e";ctx.beginPath();ctx.moveTo(-18,-2);ctx.lineTo(18,-2);ctx.lineTo(13,2);ctx.lineTo(-13,2);ctx.closePath();ctx.fill();
+      // голова — шестиугольник (светло-жёлтая)
+      ctx.fillStyle="#f0c04a";ctx.beginPath();ctx.moveTo(0,-52);ctx.lineTo(12,-46);ctx.lineTo(12,-36);ctx.lineTo(0,-30);ctx.lineTo(-12,-36);ctx.lineTo(-12,-46);ctx.closePath();ctx.fill();
+      // грива — гранёные многоугольники вокруг головы (тёплые и тёмные)
+      ctx.fillStyle="#c8903a";ctx.beginPath();ctx.moveTo(-16,-48);ctx.lineTo(-24,-38);ctx.lineTo(-14,-32);ctx.closePath();ctx.fill();
+      ctx.fillStyle="#8a5a22";ctx.beginPath();ctx.moveTo(16,-48);ctx.lineTo(24,-38);ctx.lineTo(14,-32);ctx.closePath();ctx.fill();
+      ctx.fillStyle="#d8a83a";ctx.beginPath();ctx.moveTo(-14,-52);ctx.lineTo(-8,-62);ctx.lineTo(0,-54);ctx.closePath();ctx.fill();
+      ctx.fillStyle="#a8782e";ctx.beginPath();ctx.moveTo(14,-52);ctx.lineTo(8,-62);ctx.lineTo(0,-54);ctx.closePath();ctx.fill();
+      ctx.fillStyle="#e8b44a";ctx.beginPath();ctx.moveTo(-8,-58);ctx.lineTo(-2,-66);ctx.lineTo(6,-58);ctx.lineTo(0,-52);ctx.closePath();ctx.fill();
+      ctx.fillStyle="#c8903a";ctx.beginPath();ctx.moveTo(-18,-40);ctx.lineTo(-26,-30);ctx.lineTo(-14,-30);ctx.closePath();ctx.fill();
+      ctx.fillStyle="#8a5a22";ctx.beginPath();ctx.moveTo(18,-40);ctx.lineTo(26,-30);ctx.lineTo(14,-30);ctx.closePath();ctx.fill();
+      // морда — светлый многоугольник
+      ctx.fillStyle="#f6d684";ctx.beginPath();ctx.moveTo(-5,-45);ctx.lineTo(5,-45);ctx.lineTo(7,-38);ctx.lineTo(0,-33);ctx.lineTo(-7,-38);ctx.closePath();ctx.fill();
+      // глаза — гранёные ромбы
+      ctx.fillStyle="#fff";ctx.beginPath();ctx.moveTo(-5,-44);ctx.lineTo(-2,-46);ctx.lineTo(-5,-48);ctx.lineTo(-8,-46);ctx.closePath();ctx.fill();
+      ctx.beginPath();ctx.moveTo(5,-44);ctx.lineTo(2,-46);ctx.lineTo(5,-48);ctx.lineTo(8,-46);ctx.closePath();ctx.fill();
+      ctx.fillStyle="#222";ctx.beginPath();ctx.arc(-5,-46,1.8,0,7);ctx.arc(5,-46,1.8,0,7);ctx.fill();
+      // нос-треугольник
+      ctx.fillStyle="#4a2a10";ctx.beginPath();ctx.moveTo(-2,-40);ctx.lineTo(2,-40);ctx.lineTo(0,-36);ctx.closePath();ctx.fill();
+      // лапы
+      ctx.fillStyle="#e8b44a";ctx.beginPath();ctx.moveTo(-18,-2);ctx.lineTo(-12,-2);ctx.lineTo(-14,8);ctx.lineTo(-20,8);ctx.closePath();ctx.fill();
+      ctx.beginPath();ctx.moveTo(18,-2);ctx.lineTo(12,-2);ctx.lineTo(14,8);ctx.lineTo(20,8);ctx.closePath();ctx.fill();
+      // хвост — гранёная линия
+      ctx.strokeStyle="#c8903a";ctx.lineWidth=5;ctx.lineCap="square";
+      ctx.beginPath();ctx.moveTo(-20,-26);ctx.lineTo(-30,-18);ctx.lineTo(-28,-8);ctx.stroke();
+      ctx.fillStyle="#a8782e";ctx.beginPath();ctx.moveTo(-26,-12);ctx.lineTo(-30,-8);ctx.lineTo(-24,-6);ctx.closePath();ctx.fill();
+      ctx.restore(); break; }
+    case "monkey": case "обезьяна": { s(x,y); ctx.scale(1.15,1.15);
+      ctx.fillStyle="#8a5a30";ctx.beginPath();ctx.ellipse(0,-22,20,18,0,0,7);ctx.fill();
+      ctx.beginPath();ctx.arc(0,-40,15,0,7);ctx.fill();
+      ctx.fillStyle="#e8c8a8";ctx.beginPath();ctx.arc(0,-40,11,0,7);ctx.fill();// мордочка
+      ctx.fillStyle="#111";ctx.beginPath();ctx.arc(-4,-42,2.5,0,7);ctx.arc(4,-42,2.5,0,7);ctx.fill();
+      ctx.fillStyle="#8a5a30";ctx.beginPath();ctx.arc(-10,-50,6,0,7);ctx.arc(10,-50,6,0,7);ctx.fill();// уши
+      // нос широкий
+      ctx.fillStyle="#5a3a20";ctx.beginPath();ctx.ellipse(0,-38,5,3,0,0,7);ctx.fill();
+      ctx.fillStyle="#8a5a30";ctx.beginPath();ctx.arc(-14,-12,6,0,7);ctx.arc(14,-12,6,0,7);ctx.fill();
+      // хвост
+      ctx.strokeStyle="#8a5a30";ctx.lineWidth=5;ctx.lineCap="round";ctx.beginPath();ctx.moveTo(-18,-20);ctx.quadraticCurveTo(-30,-4,-22,8);ctx.stroke();
+      ctx.restore(); break; }
+    case "snake": case "змея": { s(x,y); ctx.scale(1.2,1.2);
+      ctx.strokeStyle="#4a9a3a";ctx.lineWidth=14;ctx.lineCap="round";
+      ctx.beginPath();ctx.moveTo(-30,0);ctx.quadraticCurveTo(-10,-24,10,-8);ctx.quadraticCurveTo(24,4,30,-2);ctx.stroke();
+      // узор
+      ctx.strokeStyle="#2a7a2a";ctx.lineWidth=6;
+      ctx.beginPath();ctx.moveTo(-26,-2);ctx.quadraticCurveTo(-14,-14,-2,-6);ctx.stroke();
+      // голова-капля
+      ctx.fillStyle="#4a9a3a";ctx.beginPath();ctx.ellipse(30,-2,7,9,0.4,0,7);ctx.fill();
+      ctx.fillStyle="#e83a3a";ctx.beginPath();ctx.beginPath();ctx.moveTo(36,-4);ctx.lineTo(42,-3);ctx.lineTo(36,0);ctx.closePath();ctx.fill();
+      ctx.fillStyle="#111";ctx.beginPath();ctx.arc(32,-4,2,0,7);ctx.fill();
+      ctx.restore(); break; }
+    case "frog": case "лягушка": { s(x,y); ctx.scale(1.1,1.1);
+      ctx.fillStyle="#4a9a3a";ctx.beginPath();ctx.ellipse(0,-14,22,14,0,0,7);ctx.fill();
+      ctx.fillStyle="#6ac04a";ctx.beginPath();ctx.arc(0,-16,18,0,7);ctx.fill();
+      // глаза выпученные
+      ctx.fillStyle="#4a9a3a";ctx.beginPath();ctx.arc(-10,-26,8,0,7);ctx.arc(10,-26,8,0,7);ctx.fill();
+      ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(-10,-26,5,0,7);ctx.arc(10,-26,5,0,7);ctx.fill();
+      ctx.fillStyle="#111";ctx.beginPath();ctx.arc(-10,-26,2.5,0,7);ctx.arc(10,-26,2.5,0,7);ctx.fill();
+      ctx.fillStyle="#2a6a2a";ctx.beginPath();ctx.ellipse(0,-18,5,3,0,0,7);ctx.fill();
+      // лапки
+      ctx.fillStyle="#4a9a3a";ctx.beginPath();ctx.arc(-20,-2,5,0,7);ctx.arc(20,-2,5,0,7);ctx.fill();
+      ctx.restore(); break; }
+    case "turtle": case "черепаха": { s(x,y); ctx.scale(1.1,1.1);
+      ctx.fillStyle="#5a8a3a";ctx.beginPath();ctx.ellipse(0,-12,24,16,0,0,7);ctx.fill();// панцирь
+      ctx.strokeStyle="#3a6a2a";ctx.lineWidth=3;
+      ctx.beginPath();ctx.moveTo(-16,-12);ctx.lineTo(16,-12);ctx.stroke();ctx.beginPath();ctx.moveTo(0,-24);ctx.lineTo(0,-2);ctx.stroke();
+      ctx.fillStyle="#7ab04a";ctx.beginPath();ctx.arc(-7,-22,4,0,7);ctx.arc(7,-22,4,0,7);ctx.fill();// узор
+      ctx.fillStyle="#6a8a5a";ctx.beginPath();ctx.ellipse(0,-16,10,8,0,0,7);ctx.fill();// голова
+      ctx.fillStyle="#8ab06a";ctx.beginPath();ctx.arc(0,-18,9,0,7);ctx.fill();
+      ctx.fillStyle="#111";ctx.beginPath();ctx.arc(-3,-20,2,0,7);ctx.arc(3,-20,2,0,7);ctx.fill();
+      // лапы
+      ctx.fillStyle="#6a8a5a";ctx.beginPath();ctx.arc(-20,-4,5,0,7);ctx.arc(20,-4,5,0,7);ctx.fill();
+      ctx.restore(); break; }
+    case "hippo": case "бегемот": { s(x,y); ctx.scale(1.3,1.3);
+      ctx.fillStyle="#9a86a0";ctx.beginPath();ctx.ellipse(0,-24,28,22,0,0,7);ctx.fill();
+      ctx.beginPath();ctx.arc(0,-44,18,0,7);ctx.fill();
+      ctx.fillStyle="#6a5a70";ctx.beginPath();ctx.ellipse(0,-44,12,8,0,0,7);ctx.fill();// морда
+      ctx.fillStyle="#4a3a50";ctx.beginPath();ctx.ellipse(0,-40,8,4,0,0,7);ctx.fill();// ноздри
+      ctx.fillStyle="#111";ctx.beginPath();ctx.arc(-6,-47,2.5,0,7);ctx.arc(6,-47,2.5,0,7);ctx.fill();
+      ctx.beginPath();ctx.arc(-14,-44,4,0,7);ctx.arc(14,-44,4,0,7);ctx.fill();// уши
+      ctx.restore(); break; }
+    case "rhino": case "носорог": { s(x,y); ctx.scale(1.3,1.3);
+      ctx.fillStyle="#a0a0ac";ctx.beginPath();ctx.ellipse(0,-24,30,20,0,0,7);ctx.fill();
+      ctx.beginPath();ctx.arc(0,-42,17,0,7);ctx.fill();
+      ctx.fillStyle="#8a8a94";ctx.beginPath();ctx.arc(-18,-38,10,0,7);ctx.fill();// ухо
+      ctx.fillStyle="#c8c8d0";ctx.beginPath();ctx.moveTo(8,-40);ctx.lineTo(20,-48);ctx.lineTo(6,-36);ctx.closePath();ctx.fill();// рог
+      ctx.fillStyle="#111";ctx.beginPath();ctx.arc(-8,-44,2.5,0,7);ctx.arc(6,-44,2.5,0,7);ctx.fill();
+      ctx.restore(); break; }
+    case "camel": case "верблюд": { s(x,y); ctx.scale(1.15,1.15);
+      ctx.fillStyle="#d8a86a";ctx.beginPath();ctx.ellipse(0,-26,24,16,0,0,7);ctx.fill();
+      // горбы
+      ctx.beginPath();ctx.ellipse(-8,-38,8,8,0,0,7);ctx.fill();ctx.beginPath();ctx.ellipse(8,-38,8,8,0,0,7);ctx.fill();
+      ctx.beginPath();ctx.arc(0,-48,10,0,7);ctx.fill();// голова
+      ctx.fillStyle="#b88858";ctx.beginPath();ctx.ellipse(10,-52,6,5,0,0,7);ctx.fill();// морда
+      ctx.fillStyle="#111";ctx.beginPath();ctx.arc(12,-54,2,0,7);ctx.fill();
+      ctx.restore(); break; }
+    case "flamingo": case "фламинго": { s(x,y); ctx.scale(1.1,1.1);
+      ctx.strokeStyle="#e86a8a";ctx.lineWidth=14;ctx.lineCap="round";
+      ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(-4,-40);ctx.stroke();
+      ctx.fillStyle="#e86a8a";ctx.beginPath();ctx.ellipse(-4,-42,10,14,0,0,7);ctx.fill();
+      ctx.fillStyle="#ff9ab0";ctx.beginPath();ctx.arc(-18,-52,8,0,7);ctx.fill();// клюв
+      ctx.fillStyle="#ffcf6b";ctx.beginPath();ctx.moveTo(-22,-52);ctx.lineTo(-32,-48);ctx.lineTo(-22,-48);ctx.closePath();ctx.fill();
+      ctx.fillStyle="#111";ctx.beginPath();ctx.arc(-20,-54,2,0,7);ctx.fill();
+      // ноги длинные
+      ctx.strokeStyle="#e0507a";ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(2,-6);ctx.lineTo(4,4);ctx.stroke();ctx.beginPath();ctx.moveTo(-2,-6);ctx.lineTo(0,4);ctx.stroke();
+      ctx.strokeStyle="#ff9ab0";ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(-8,-30);ctx.quadraticCurveTo(-18,-24,-12,-16);ctx.stroke();// крыло
+      ctx.restore(); break; }
+    case "crocodile": case "крокодил": { s(x,y); ctx.scale(1.2,1.2);
+      ctx.fillStyle="#5a9a3a";ctx.beginPath();ctx.moveTo(-24,-4);ctx.quadraticCurveTo(-8,-16,6,-6);ctx.quadraticCurveTo(16,-2,24,0);ctx.quadraticCurveTo(14,8,0,4);ctx.quadraticCurveTo(-10,10,-22,4);ctx.closePath();ctx.fill();
+      ctx.fillStyle="#4a8a2a";ctx.beginPath();ctx.moveTo(24,0);ctx.lineTo(34,-2);ctx.quadraticCurveTo(30,4,26,5);ctx.closePath();ctx.fill();
+      ctx.fillStyle="#111";ctx.beginPath();ctx.arc(20,-2,3,0,7);ctx.fill();
+      ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(-2,-6,2,0,7);ctx.fill();
+      ctx.strokeStyle="#4a8a2a";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-20,-4);ctx.quadraticCurveTo(-28,-10,-32,-8);ctx.stroke();
+      ctx.restore(); break; }
+    case "panda": case "панда": { s(x,y); ctx.scale(1.15,1.15);
+      ctx.fillStyle="#f4f4f4";ctx.beginPath();ctx.ellipse(0,-22,22,20,0,0,7);ctx.fill();
+      ctx.fillStyle="#222";ctx.beginPath();ctx.arc(-16,-30,8,0,7);ctx.arc(16,-30,8,0,7);ctx.fill();// лапы-руки
+      ctx.fillStyle="#f4f4f4";ctx.beginPath();ctx.arc(0,-42,16,0,7);ctx.fill();
+      ctx.fillStyle="#222";ctx.beginPath();ctx.arc(-7,-46,6,0,7);ctx.arc(7,-46,6,0,7);ctx.fill();// пятна под глазами
+      ctx.fillStyle="#111";ctx.beginPath();ctx.arc(-7,-46,3,0,7);ctx.arc(7,-46,3,0,7);ctx.fill();
+      ctx.fillStyle="#222";ctx.beginPath();ctx.arc(-12,-50,5,0,7);ctx.arc(12,-50,5,0,7);ctx.fill();// уши
+      ctx.fillStyle="#4a6a9a";ctx.beginPath();ctx.arc(0,-38,4,0,7);ctx.fill();// нос
+      ctx.restore(); break; }
+    case "koala": case "коала": { s(x,y); ctx.scale(1.15,1.15);
+      ctx.fillStyle="#9aa6b0";ctx.beginPath();ctx.ellipse(0,-22,22,20,0,0,7);ctx.fill();
+      ctx.beginPath();ctx.arc(0,-40,15,0,7);ctx.fill();
+      ctx.fillStyle="#7a8690";ctx.beginPath();ctx.ellipse(0,-38,9,10,0,0,7);ctx.fill();// нос
+      ctx.fillStyle="#111";ctx.beginPath();ctx.ellipse(0,-38,6,7,0,0,7);ctx.fill();// большой нос
+      ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(-5,-44,3,0,7);ctx.arc(5,-44,3,0,7);ctx.fill();ctx.fillStyle="#111";ctx.beginPath();ctx.arc(-5,-44,1.5,0,7);ctx.arc(5,-44,1.5,0,7);ctx.fill();
+      ctx.fillStyle="#9aa6b0";ctx.beginPath();ctx.arc(-12,-50,8,0,7);ctx.arc(12,-50,8,0,7);ctx.fill();// уши
+      ctx.fillStyle="#c0c8d0";ctx.beginPath();ctx.arc(-12,-50,5,0,7);ctx.arc(12,-50,5,0,7);ctx.fill();
+      ctx.restore(); break; }
+    case "hedgehog": case "ёжик": { s(x,y); ctx.scale(1.1,1.1);
+      ctx.fillStyle="#c8906a";ctx.beginPath();ctx.ellipse(0,-16,20,16,0,0,7);ctx.fill();
+      ctx.strokeStyle="#5a3a20";ctx.lineWidth=5;ctx.lineCap="round";
+      for(let i=0;i<7;i++){ctx.beginPath();ctx.moveTo(-14+i*5,-22);ctx.lineTo(-16+i*5+4,-34);ctx.stroke();}
+      ctx.fillStyle="#c8906a";ctx.beginPath();ctx.arc(12,-16,10,0,7);ctx.fill();// мордочка
+      ctx.fillStyle="#111";ctx.beginPath();ctx.arc(18,-18,2,0,7);ctx.fill();
+      ctx.fillStyle="#222";ctx.beginPath();ctx.arc(12,-14,3,0,7);ctx.fill();
+      ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(12,-15,1.5,0,7);ctx.fill();
+      ctx.restore(); break; }
+    case "hamster": case "хомяк": { s(x,y); ctx.scale(1.15,1.15);
+      ctx.fillStyle="#d8a86a";ctx.beginPath();ctx.ellipse(0,-18,20,16,0,0,7);ctx.fill();
+      ctx.beginPath();ctx.arc(0,-34,14,0,7);ctx.fill();
+      ctx.fillStyle="#f4d8b0";ctx.beginPath();ctx.arc(0,-34,9,0,7);ctx.fill();// мордочка
+      ctx.fillStyle="#111";ctx.beginPath();ctx.arc(-4,-36,2,0,7);ctx.arc(4,-36,2,0,7);ctx.fill();
+      ctx.fillStyle="#ff8ab0";ctx.beginPath();ctx.arc(0,-32,3,0,7);ctx.fill();
+      ctx.fillStyle="#d8a86a";ctx.beginPath();ctx.arc(-12,-44,5,0,7);ctx.arc(12,-44,5,0,7);ctx.fill();
+      // щёчки
+      ctx.fillStyle="#e88a6a";ctx.beginPath();ctx.arc(-10,-30,5,0,7);ctx.arc(10,-30,5,0,7);ctx.fill();
+      ctx.beginPath();ctx.arc(0,-6,6,0,7);ctx.arc(12,-6,6,0,7);ctx.fill();
+      ctx.restore(); break; }
+    case "deer": case "олень": { s(x,y); ctx.scale(1.15,1.15);
+      ctx.fillStyle="#c8905a";ctx.beginPath();ctx.ellipse(0,-22,22,18,0,0,7);ctx.fill();
+      ctx.fillStyle="#b8804a";ctx.beginPath();ctx.arc(0,-42,13,0,7);ctx.fill();
+      ctx.fillStyle="#fff";ctx.beginPath();ctx.ellipse(8,-44,4,5,0,0,7);ctx.fill();// мордочка
+      ctx.fillStyle="#111";ctx.beginPath();ctx.arc(12,-45,2,0,7);ctx.fill();
+      // рога
+      ctx.strokeStyle="#8a5a30";ctx.lineWidth=4;ctx.lineCap="round";
+      ctx.beginPath();ctx.moveTo(-5,-52);ctx.lineTo(-12,-64);ctx.lineTo(-18,-60);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(0,-52);ctx.lineTo(4,-66);ctx.lineTo(10,-62);ctx.stroke();
+      // пятна
+      ctx.fillStyle="#e8d0b0";ctx.beginPath();ctx.arc(-8,-24,3,0,7);ctx.arc(2,-28,3,0,7);ctx.arc(10,-22,3,0,7);ctx.fill();
+      ctx.restore(); break; }
+    case "cow": case "корова": { s(x,y); ctx.scale(1.2,1.2);
+      ctx.fillStyle="#f4f4f4";ctx.beginPath();ctx.ellipse(0,-22,26,20,0,0,7);ctx.fill();
+      ctx.fillStyle="#222";ctx.beginPath();ctx.arc(-10,-16,7,0,7);ctx.arc(10,-24,7,0,7);ctx.arc(0,-28,6,0,7);ctx.fill();// пятна
+      ctx.fillStyle="#f4f4f4";ctx.beginPath();ctx.arc(0,-44,16,0,7);ctx.fill();
+      ctx.fillStyle="#f08a9a";ctx.beginPath();ctx.ellipse(6,-42,5,4,0,0,7);ctx.fill();// нос-розовое
+      ctx.fillStyle="#111";ctx.beginPath();ctx.arc(8,-45,2,0,7);ctx.arc(3,-45,2,0,7);ctx.fill();
+      ctx.fillStyle="#f4f4f4";ctx.beginPath();ctx.arc(-12,-50,6,0,7);ctx.arc(12,-50,6,0,7);ctx.fill();
+      ctx.fillStyle="#f08a9a";ctx.beginPath();ctx.arc(-12,-50,3,0,7);ctx.arc(12,-50,3,0,7);ctx.fill();// внутренность ушей
+      ctx.restore(); break; }
+    case "pig": case "свинья": { s(x,y); ctx.scale(1.1,1.1);
+      ctx.fillStyle="#f4a8c0";ctx.beginPath();ctx.ellipse(0,-18,26,20,0,0,7);ctx.fill();
+      ctx.beginPath();ctx.arc(0,-38,16,0,7);ctx.fill();
+      ctx.fillStyle="#e898b0";ctx.beginPath();ctx.arc(0,-38,12,0,7);ctx.fill();// рыло
+      ctx.fillStyle="#c87890";ctx.beginPath();ctx.ellipse(0,-38,8,6,0,0,7);ctx.fill();// нос
+      ctx.fillStyle="#5a2a20";ctx.beginPath();ctx.arc(-4,-39,2,0,7);ctx.arc(4,-39,2,0,7);ctx.fill();// ноздри
+      ctx.fillStyle="#111";ctx.beginPath();ctx.arc(-6,-40,2,0,7);ctx.arc(6,-40,2,0,7);ctx.fill();
+      ctx.fillStyle="#f4a8c0";ctx.beginPath();ctx.moveTo(-12,-48);ctx.lineTo(-16,-56);ctx.lineTo(-8,-50);ctx.closePath();ctx.fill();ctx.beginPath();ctx.moveTo(12,-48);ctx.lineTo(16,-56);ctx.lineTo(8,-50);ctx.closePath();ctx.fill();
+      ctx.beginPath();ctx.arc(-16,-8,5,0,7);ctx.arc(16,-8,5,0,7);ctx.fill();
+      ctx.strokeStyle="#f4a8c0";ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(0,-2);ctx.quadraticCurveTo(8,4,4,10);ctx.quadraticCurveTo(0,6,-6,8);ctx.stroke();
+      ctx.restore(); break; }
+    case "sheep": case "овца": { s(x,y); ctx.scale(1.15,1.15);
+      ctx.fillStyle="#e8e8e8";ctx.beginPath();ctx.arc(-10,-26,12,0,7);ctx.arc(10,-26,12,0,7);ctx.arc(0,-34,13,0,7);ctx.arc(-8,-16,12,0,7);ctx.arc(10,-16,12,0,7);ctx.fill();// шерсть кругами
+      ctx.fillStyle="#222";ctx.beginPath();ctx.ellipse(0,-38,8,9,0,0,7);ctx.fill();// голова
+      ctx.fillStyle="#f4f4f4";ctx.beginPath();ctx.ellipse(0,-38,5,6,0,0,7);ctx.fill();// мордочка
+      ctx.fillStyle="#111";ctx.beginPath();ctx.arc(-3,-40,1.5,0,7);ctx.arc(3,-40,1.5,0,7);ctx.fill();
+      ctx.restore(); break; }
+    case "goat": case "коза": { s(x,y); ctx.scale(1.15,1.15);
+      ctx.fillStyle="#d8d8d8";ctx.beginPath();ctx.ellipse(0,-22,24,18,0,0,7);ctx.fill();
+      ctx.fillStyle="#c0c0c0";ctx.beginPath();ctx.arc(8,-40,11,0,7);ctx.fill();
+      ctx.fillStyle="#e8e8e8";ctx.beginPath();ctx.ellipse(14,-38,5,6,0,0,7);ctx.fill();
+      ctx.strokeStyle="#b0b0b0";ctx.lineWidth=4;ctx.lineCap="round";ctx.beginPath();ctx.moveTo(16,-36);ctx.lineTo(22,-32);ctx.stroke();
+      ctx.strokeStyle="#8a8a8a";ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(4,-48);ctx.lineTo(0,-60);ctx.lineTo(-8,-58);ctx.stroke();
+      ctx.fillStyle="#111";ctx.beginPath();ctx.arc(12,-42,2,0,7);ctx.fill();
+      ctx.strokeStyle="#c0c0c0";ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(-18,-10);ctx.lineTo(-20,0);ctx.stroke();ctx.beginPath();ctx.moveTo(18,-10);ctx.lineTo(20,0);ctx.stroke();
+      ctx.restore(); break; }
+    case "horse": case "лошадь": { s(x,y); ctx.scale(1.2,1.2);
+      ctx.fillStyle="#8a5a30";ctx.beginPath();ctx.ellipse(0,-22,26,18,0,0,7);ctx.fill();
+      ctx.fillStyle="#6a4a20";ctx.beginPath();ctx.arc(10,-40,11,0,7);ctx.fill();// голова
+      ctx.fillStyle="#8a5a30";ctx.beginPath();ctx.ellipse(16,-42,7,5,0,0,7);ctx.fill();// нос
+      ctx.fillStyle="#111";ctx.beginPath();ctx.arc(14,-43,2,0,7);ctx.fill();
+      // грива
+      ctx.fillStyle="#5a3a18";ctx.beginPath();ctx.moveTo(4,-34);ctx.lineTo(8,-50);ctx.lineTo(12,-36);ctx.closePath();ctx.stroke();
+      ctx.strokeStyle="#5a3a18";ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(-10,-14);ctx.lineTo(-12,0);ctx.stroke();ctx.beginPath();ctx.moveTo(12,-14);ctx.lineTo(14,0);ctx.stroke();
+      ctx.strokeStyle="#6a4a20";ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(4,-14);ctx.lineTo(6,0);ctx.stroke();
+      ctx.restore(); break; }
+    case "rooster": case "петух": case "chicken": case "курица": { s(x,y); ctx.scale(1.15,1.15);
+      ctx.fillStyle="#e0893a";ctx.beginPath();ctx.ellipse(0,-14,20,14,0,0,7);ctx.fill();
+      ctx.beginPath();ctx.arc(6,-30,9,0,7);ctx.fill();// голова
+      ctx.fillStyle="#ff5a5a";ctx.beginPath();ctx.moveTo(6,-38);ctx.lineTo(4,-46);ctx.lineTo(9,-39);ctx.closePath();ctx.fill();// гребешок
+      ctx.fillStyle="#ff9d00";ctx.beginPath();ctx.moveTo(15,-31);ctx.lineTo(22,-28);ctx.lineTo(15,-26);ctx.closePath();ctx.fill();// клюв
+      ctx.fillStyle="#111";ctx.beginPath();ctx.arc(12,-32,2,0,7);ctx.fill();
+      // хвост
+      ctx.strokeStyle="#7a6a3a";ctx.lineWidth=6;ctx.lineCap="round";ctx.beginPath();ctx.moveTo(-18,-14);ctx.quadraticCurveTo(-26,-22,-24,-8);ctx.stroke();
+      ctx.strokeStyle="#e0893a";ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(-10,0);ctx.lineTo(-12,6);ctx.stroke();ctx.beginPath();ctx.moveTo(4,0);ctx.lineTo(6,6);ctx.stroke();
+      ctx.restore(); break; }
+    case "duck": case "утка": { s(x,y); ctx.scale(1.15,1.15);
+      ctx.fillStyle="#fff";ctx.beginPath();ctx.ellipse(0,-14,20,14,0,0,7);ctx.fill();
+      ctx.beginPath();ctx.arc(8,-26,9,0,7);ctx.fill();
+      ctx.fillStyle="#ff9d00";ctx.beginPath();ctx.moveTo(15,-28);ctx.lineTo(24,-25);ctx.lineTo(15,-22);ctx.closePath();ctx.fill();
+      ctx.fillStyle="#111";ctx.beginPath();ctx.arc(12,-28,2,0,7);ctx.fill();
+      ctx.strokeStyle="#fff";ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(0,-6);ctx.lineTo(2,2);ctx.stroke();ctx.beginPath();ctx.moveTo(-8,-6);ctx.lineTo(-10,2);ctx.stroke();
+      ctx.restore(); break; }
+    case "ostrich": case "страус": { s(x,y); ctx.scale(1.15,1.15);
+      ctx.fillStyle="#e8d8c8";ctx.beginPath();ctx.ellipse(0,-20,22,18,0,0,7);ctx.fill();
+      ctx.strokeStyle="#e8d8c8";ctx.lineWidth=14;ctx.lineCap="round";ctx.beginPath();ctx.moveTo(0,-24);ctx.lineTo(6,-54);ctx.stroke();
+      ctx.fillStyle="#e8d8c8";ctx.beginPath();ctx.arc(16,-56,10,0,7);ctx.fill();
+      ctx.fillStyle="#ffcf6b";ctx.beginPath();ctx.moveTo(24,-58);ctx.lineTo(32,-54);ctx.lineTo(24,-52);ctx.closePath();ctx.fill();
+      ctx.fillStyle="#111";ctx.beginPath();ctx.arc(18,-58,2.5,0,7);ctx.fill();
+      ctx.strokeStyle="#c8a888";ctx.lineWidth=6;ctx.strokeStyle="#e8d8c8";ctx.lineWidth=6;ctx.beginPath();ctx.moveTo(-6,-6);ctx.lineTo(-4,4);ctx.stroke();ctx.beginPath();ctx.moveTo(6,-6);ctx.lineTo(8,4);ctx.stroke();
+      ctx.restore(); break; }
+    case "cat": case "кот": case "кошка": { s(x,y); drawCatBody(y,"#ffb66a","#ff9d45"); ctx.restore(); break; }
+    case "dog": case "собака": { s(x,y); drawCatBody(y,"#c98d4e","#a0602a"); ctx.restore(); break; }
+    case "wolf": case "волк": { s(x,y); ctx.scale(1.15,1.15);
+      ctx.fillStyle="#7a8294";ctx.beginPath();ctx.ellipse(0,-22,24,18,0,0,7);ctx.fill();
+      ctx.beginPath();ctx.arc(0,-40,16,0,7);ctx.fill();
+      ctx.fillStyle="#5a6274";ctx.beginPath();ctx.moveTo(-10,-48);ctx.lineTo(-18,-66);ctx.lineTo(-5,-52);ctx.closePath();ctx.fill();
+      ctx.beginPath();ctx.moveTo(10,-48);ctx.lineTo(18,-66);ctx.lineTo(5,-52);ctx.closePath();ctx.fill();
+      ctx.fillStyle="#e8e8e8";ctx.beginPath();ctx.arc(-4,-46,5,0,7);ctx.arc(4,-46,5,0,7);ctx.fill();ctx.fillStyle="#111";ctx.beginPath();ctx.arc(-4,-46,2.5,0,7);ctx.arc(4,-46,2.5,0,7);ctx.fill();
+      ctx.fillStyle="#222";ctx.beginPath();ctx.moveTo(-2,-40);ctx.lineTo(2,-40);ctx.lineTo(0,-36);ctx.closePath();ctx.fill();
+      ctx.fillStyle="#7a8294";ctx.beginPath();ctx.arc(-14,-8,6,0,7);ctx.arc(14,-8,6,0,7);ctx.fill();
+      ctx.strokeStyle="#5a6274";ctx.lineWidth=7;ctx.lineCap="round";ctx.beginPath();ctx.moveTo(-14,-14);ctx.quadraticCurveTo(-28,-18,-26,-8);ctx.stroke();
+      ctx.restore(); break; }
+    case "elk": case "лось": { s(x,y); ctx.scale(1.25,1.25);
+      ctx.fillStyle="#7a5a3a";ctx.beginPath();ctx.ellipse(0,-24,24,20,0,0,7);ctx.fill();
+      ctx.beginPath();ctx.arc(0,-44,14,0,7);ctx.fill();
+      ctx.fillStyle="#5a3a22";ctx.beginPath();ctx.ellipse(6,-42,5,6,0,0,7);ctx.fill();
+      ctx.fillStyle="#111";ctx.beginPath();ctx.arc(10,-44,2,0,7);ctx.fill();
+      // рога лося (широкие)
+      ctx.strokeStyle="#c8a888";ctx.lineWidth=5;ctx.lineCap="round";
+      ctx.beginPath();ctx.moveTo(-4,-54);ctx.lineTo(-20,-58);ctx.lineTo(-26,-52);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(-10,-54);ctx.lineTo(-18,-62);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(2,-54);ctx.lineTo(18,-58);ctx.lineTo(26,-52);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(8,-54);ctx.lineTo(16,-62);ctx.stroke();
+      // борода
+      ctx.fillStyle="#5a3a22";ctx.beginPath();ctx.ellipse(12,-38,5,10,0,0,7);ctx.fill();
+      ctx.restore(); break; }
+    case "leopard": case "леопард": case "gepard": case "cheetah": case "гепард": { s(x,y); ctx.scale(1.25,1.25);
+      ctx.fillStyle="#e8b45c";ctx.beginPath();ctx.ellipse(0,-22,26,16,0,0,7);ctx.fill();
+      ctx.fillStyle="#111";ctx.fillStyle="#c8902a";
+      for(let i=0;i<8;i++){const px=((i*17)%50)-25,py=((i*21)%20)-30;ctx.beginPath();ctx.arc(px/2*1.4,py/1.4,2.5,0,7);ctx.fill();}
+      ctx.fillStyle="#e8b45c";ctx.beginPath();ctx.arc(0,-42,15,0,7);ctx.fill();
+      ctx.fillStyle="#c8902a";ctx.beginPath();ctx.arc(-20,-28,3,0,7);ctx.arc(20,-28,3,0,7);ctx.fill();ctx.beginPath();ctx.arc(0,-48,3,0,7);ctx.fill();
+      ctx.fillStyle="#f4f4f4";ctx.beginPath();ctx.arc(4,-44,4,0,7);ctx.fill();ctx.fillStyle="#111";ctx.beginPath();ctx.arc(5,-44,2,0,7);ctx.fill();
+      ctx.fillStyle="#111";ctx.beginPath();ctx.arc(-2,-44,2,0,7);ctx.fill();
+      ctx.fillStyle="#e8b45c";ctx.beginPath();ctx.arc(-16,-8,6,0,7);ctx.arc(16,-8,6,0,7);ctx.fill();
+      ctx.strokeStyle="#c8902a";ctx.lineWidth=7;ctx.lineCap="round";ctx.beginPath();ctx.moveTo(-14,-20);ctx.lineTo(-4,-2);ctx.stroke();ctx.beginPath();ctx.moveTo(14,-20);ctx.lineTo(4,-2);ctx.stroke();
+      ctx.restore(); break; }
+    case "pony": case "пони": { s(x,y); ctx.scale(1.05,1.05);
+      ctx.fillStyle="#e8a05a";ctx.beginPath();ctx.ellipse(0,-20,22,16,0,0,7);ctx.fill();
+      ctx.fillStyle="#c8784a";ctx.beginPath();ctx.arc(8,-36,10,0,7);ctx.fill();
+      ctx.fillStyle="#e8a05a";ctx.beginPath();ctx.ellipse(14,-38,6,4,0,0,7);ctx.fill();
+      ctx.fillStyle="#111";ctx.beginPath();ctx.arc(13,-38,2,0,7);ctx.fill();
+      ctx.fillStyle="#7a4a2a";ctx.beginPath();ctx.moveTo(2,-30);ctx.lineTo(4,-44);ctx.lineTo(8,-31);ctx.closePath();ctx.fill();// грива
+      ctx.strokeStyle="#7a4a2a";ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(-10,-10);ctx.lineTo(-12,0);ctx.stroke();ctx.beginPath();ctx.moveTo(12,-10);ctx.lineTo(14,0);ctx.stroke();
+      ctx.restore(); break; }
+    case "donkey": case "осёл": { s(x,y); ctx.scale(1.15,1.15);
+      ctx.fillStyle="#9a9aa4";ctx.beginPath();ctx.ellipse(0,-22,24,18,0,0,7);ctx.fill();
+      ctx.fillStyle="#7a7a84";ctx.beginPath();ctx.arc(6,-40,11,0,7);ctx.fill();
+      // длинные уши
+      ctx.fillStyle="#9a9aa4";ctx.beginPath();ctx.ellipse(2,-52,4,14,0,0,7);ctx.fill();ctx.beginPath();ctx.ellipse(10,-52,4,14,0,0,7);ctx.fill();
+      ctx.fillStyle="#e8e8e8";ctx.beginPath();ctx.ellipse(12,-40,5,5,0,0,7);ctx.fill();
+      ctx.fillStyle="#111";ctx.beginPath();ctx.arc(14,-41,2,0,7);ctx.fill();
+      ctx.restore(); break; }
+    case "bull": case "бык": { s(x,y); ctx.scale(1.25,1.25);
+      ctx.fillStyle="#8a4a3a";ctx.beginPath();ctx.ellipse(0,-22,26,20,0,0,7);ctx.fill();
+      ctx.beginPath();ctx.arc(0,-44,16,0,7);ctx.fill();
+      ctx.fillStyle="#e8e8e8";ctx.beginPath();ctx.arc(-6,-40,5,0,7);ctx.arc(6,-40,5,0,7);ctx.fill();ctx.fillStyle="#111";ctx.beginPath();ctx.arc(-6,-40,2,0,7);ctx.arc(6,-40,2,0,7);ctx.fill();
+      ctx.fillStyle="#111";ctx.beginPath();ctx.arc(0,-42,4,0,7);ctx.fill();// нос-кольцо
+      // рога
+      ctx.strokeStyle="#e8e0d0";ctx.lineWidth=5;ctx.lineCap="round";ctx.beginPath();ctx.moveTo(-10,-54);ctx.lineTo(-18,-62);ctx.stroke();ctx.beginPath();ctx.moveTo(10,-54);ctx.lineTo(18,-62);ctx.stroke();
+      ctx.restore(); break; }
+    case "ram": case "баран": { s(x,y); ctx.scale(1.15,1.15);
+      ctx.fillStyle="#e8e8e8";ctx.beginPath();ctx.ellipse(0,-20,22,18,0,0,7);ctx.fill();
+      ctx.fillStyle="#c8c8c8";ctx.beginPath();ctx.arc(6,-36,12,0,7);ctx.fill();
+      // закрученные рога
+      ctx.strokeStyle="#a0784a";ctx.lineWidth=5;ctx.lineCap="round";
+      ctx.beginPath();ctx.arc(2,-40,8,0,Math.PI*1.6);ctx.stroke();
+      ctx.fillStyle="#f4f4f4";ctx.beginPath();ctx.ellipse(12,-36,5,6,0,0,7);ctx.fill();
+      ctx.fillStyle="#111";ctx.beginPath();ctx.arc(14,-37,2,0,7);ctx.fill();
+      ctx.restore(); break; }
+    case "gorilla": case "горилла": { s(x,y); ctx.scale(1.3,1.3);
+      ctx.fillStyle="#3a3a3a";ctx.beginPath();ctx.ellipse(0,-24,28,26,0,0,7);ctx.fill();
+      ctx.fillStyle="#2a2a2a";ctx.beginPath();ctx.arc(0,-42,16,0,7);ctx.fill();
+      ctx.fillStyle="#c8b89a";ctx.beginPath();ctx.arc(0,-42,11,0,7);ctx.fill();// лицо
+      ctx.fillStyle="#111";ctx.beginPath();ctx.arc(-4,-44,2.5,0,7);ctx.arc(4,-44,2.5,0,7);ctx.fill();
+      ctx.fillStyle="#8a6a4a";ctx.beginPath();ctx.ellipse(0,-40,3,2,0,0,7);ctx.fill();// ноздри
+      ctx.fillStyle="#3a3a3a";ctx.beginPath();ctx.arc(-22,-8,8,0,7);ctx.arc(22,-8,8,0,7);ctx.fill();// кулаки
+      ctx.fillStyle="#2a2a2a";ctx.beginPath();ctx.arc(-12,-48,5,0,7);ctx.arc(12,-48,5,0,7);ctx.fill();
+      ctx.restore(); break; }
+    case "kangaroo": case "кенгуру": { s(x,y); ctx.scale(1.15,1.15);
+      ctx.fillStyle="#d8a86a";ctx.beginPath();ctx.ellipse(0,-24,22,24,0,0,7);ctx.fill();
+      ctx.fillStyle="#c8985a";ctx.beginPath();ctx.arc(0,-44,14,0,7);ctx.fill();
+      ctx.fillStyle="#e8b88a";ctx.beginPath();ctx.ellipse(6,-42,5,6,0,0,7);ctx.fill();
+      ctx.fillStyle="#111";ctx.beginPath();ctx.arc(9,-44,2,0,7);ctx.fill();
+      ctx.fillStyle="#d8a86a";ctx.beginPath();ctx.moveTo(-10,-48);ctx.lineTo(-18,-62);ctx.lineTo(-6,-50);ctx.closePath();ctx.fill();ctx.beginPath();ctx.moveTo(10,-48);ctx.lineTo(18,-62);ctx.lineTo(6,-50);ctx.closePath();ctx.fill();
+      // сумка-живот
+      ctx.fillStyle="#c8985a";ctx.beginPath();ctx.ellipse(0,-16,12,14,0,0,7);ctx.fill();
+      ctx.strokeStyle="#c8985a";ctx.lineWidth=7;ctx.lineCap="round";ctx.beginPath();ctx.moveTo(-16,-8);ctx.lineTo(-8,4);ctx.stroke();ctx.beginPath();ctx.moveTo(8,-8);ctx.lineTo(4,4);ctx.stroke();
+      // хвост
+      ctx.strokeStyle="#d8a86a";ctx.lineWidth=6;ctx.beginPath();ctx.moveTo(-18,-14);ctx.quadraticCurveTo(-30,0,-40,6);ctx.stroke();
+      ctx.restore(); break; }
+    case "sloth": case "ленивец": { s(x,y); ctx.scale(1.15,1.15);
+      ctx.fillStyle="#b8a888";ctx.beginPath();ctx.ellipse(0,-20,20,22,0,0,7);ctx.fill();
+      ctx.fillStyle="#a89878";ctx.beginPath();ctx.arc(0,-40,14,0,7);ctx.fill();
+      ctx.fillStyle="#e8d8c8";ctx.beginPath();ctx.ellipse(0,-38,8,9,0,0,7);ctx.fill();
+      ctx.fillStyle="#111";ctx.beginPath();ctx.arc(-4,-40,2,0,7);ctx.arc(4,-40,2,0,7);ctx.fill();
+      // тёмные пятна вокруг глаз
+      ctx.fillStyle="#5a4a3a";ctx.beginPath();ctx.arc(-4,-40,4,0,7);ctx.arc(4,-40,4,0,7);ctx.fill();
+      ctx.strokeStyle="#8a7a5a";ctx.lineWidth=6;ctx.lineCap="round";ctx.beginPath();ctx.moveTo(-14,-10);ctx.lineTo(-18,2);ctx.stroke();ctx.beginPath();ctx.moveTo(14,-10);ctx.lineTo(18,2);ctx.stroke();
+      ctx.restore(); break; }
+    case "raccoon": case "енот": case "rac": { s(x,y); ctx.scale(1.1,1.1);
+      ctx.fillStyle="#8a8a94";ctx.beginPath();ctx.ellipse(0,-20,22,18,0,0,7);ctx.fill();
+      ctx.fillStyle="#6a6a74";ctx.beginPath();ctx.arc(0,-38,15,0,7);ctx.fill();
+      ctx.fillStyle="#e8e8e8";ctx.beginPath();ctx.arc(0,-38,9,0,7);ctx.fill();
+      ctx.fillStyle="#222";ctx.beginPath();ctx.arc(-4,-40,3,0,7);ctx.arc(4,-40,3,0,7);ctx.fill();
+      ctx.fillStyle="#6a6a74";ctx.beginPath();ctx.moveTo(-12,-46);ctx.lineTo(-18,-60);ctx.lineTo(-4,-48);ctx.closePath();ctx.fill();ctx.beginPath();ctx.moveTo(12,-46);ctx.lineTo(18,-60);ctx.lineTo(4,-48);ctx.closePath();ctx.fill();
+      ctx.fillStyle="#111";ctx.beginPath();ctx.arc(0,-35,2,0,7);ctx.fill();
+      // полосатый хвост
+      ctx.strokeStyle="#8a8a94";ctx.lineWidth=7;ctx.lineCap="round";ctx.beginPath();ctx.moveTo(-16,-12);ctx.quadraticCurveTo(-30,-4,-24,6);ctx.stroke();
+      ctx.strokeStyle="#222";ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(-26,0);ctx.lineTo(-24,6);ctx.stroke();
+      ctx.restore(); break; }
+    case "otter": case "выдра": { s(x,y); ctx.scale(1.1,1.1);
+      ctx.fillStyle="#8a6a4a";ctx.beginPath();ctx.ellipse(0,-16,20,14,0,0,7);ctx.fill();
+      ctx.beginPath();ctx.arc(0,-32,12,0,7);ctx.fill();
+      ctx.fillStyle="#6a4a2a";ctx.beginPath();ctx.arc(0,-32,8,0,7);ctx.fill();
+      ctx.fillStyle="#111";ctx.beginPath();ctx.arc(-3,-34,2,0,7);ctx.arc(3,-34,2,0,7);ctx.fill();
+      ctx.fillStyle="#8a6a4a";ctx.beginPath();ctx.arc(-8,-30,6,0,7);ctx.arc(8,-30,6,0,7);ctx.fill();// уши
+      ctx.strokeStyle="#8a6a4a";ctx.lineWidth=6;ctx.lineCap="round";ctx.beginPath();ctx.moveTo(-16,-10);ctx.quadraticCurveTo(-28,-2,-22,8);ctx.stroke();
+      ctx.restore(); break; }
+    case "seal": case "тюлень": { s(x,y); ctx.scale(1.1,1.1);
+      ctx.fillStyle="#9aa6b0";ctx.beginPath();ctx.ellipse(0,-10,24,14,0,0,7);ctx.fill();
+      ctx.fillStyle="#9aa6b0";ctx.beginPath();ctx.arc(0,-24,13,0,7);ctx.fill();
+      ctx.fillStyle="#7a8690";ctx.beginPath();ctx.arc(0,-24,8,0,7);ctx.fill();
+      ctx.fillStyle="#111";ctx.beginPath();ctx.arc(-4,-26,2,0,7);ctx.arc(4,-26,2,0,7);ctx.fill();
+      ctx.fillStyle="#9aa6b0";ctx.beginPath();ctx.ellipse(0,-20,4,6,0,0,7);ctx.fill();
+      ctx.strokeStyle="#7a8690";ctx.lineWidth=14;ctx.lineCap="round";ctx.beginPath();ctx.moveTo(-18,-10);ctx.quadraticCurveTo(-30,2,-40,4);ctx.stroke();
+      // ласты
+      ctx.strokeStyle="#9aa6b0";ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(-10,2);ctx.lineTo(-16,8);ctx.stroke();ctx.beginPath();ctx.moveTo(10,2);ctx.lineTo(16,8);ctx.stroke();
+      ctx.restore(); break; }
+    case "walrus": case "морж": { s(x,y); ctx.scale(1.2,1.2);
+      ctx.fillStyle="#8a7a5a";ctx.beginPath();ctx.ellipse(0,-12,26,18,0,0,7);ctx.fill();
+      ctx.beginPath();ctx.arc(0,-30,16,0,7);ctx.fill();
+      ctx.fillStyle="#7a6a4a";ctx.beginPath();ctx.ellipse(0,-30,11,8,0,0,7);ctx.fill();
+      // бивни
+      ctx.fillStyle="#f4f4f4";ctx.beginPath();ctx.moveTo(-8,-28);ctx.lineTo(-12,-42);ctx.lineTo(-3,-30);ctx.closePath();ctx.fill();ctx.beginPath();ctx.moveTo(8,-28);ctx.lineTo(12,-42);ctx.lineTo(3,-30);ctx.closePath();ctx.fill();
+      ctx.fillStyle="#111";ctx.beginPath();ctx.arc(-5,-33,2,0,7);ctx.arc(5,-33,2,0,7);ctx.fill();
+      // усы
+      ctx.strokeStyle="#c8b898";ctx.lineWidth=2;for(let i=-3;i<=3;i++){ctx.beginPath();ctx.moveTo(0+i*2,-26);ctx.lineTo(0+i*5,-32);ctx.stroke();}
+      ctx.strokeStyle="#8a7a5a";ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(-20,-6);ctx.lineTo(-24,4);ctx.stroke();ctx.beginPath();ctx.moveTo(20,-6);ctx.lineTo(24,4);ctx.stroke();
+      ctx.restore(); break; }
+    case "lizard": case "ящерица": { s(x,y); ctx.scale(1.05,1.05);
+      ctx.fillStyle="#8ab04a";ctx.beginPath();ctx.ellipse(0,0,18,10,0,0,7);ctx.fill();
+      ctx.fillStyle="#8ab04a";ctx.beginPath();ctx.arc(18,0,8,0,7);ctx.fill();
+      ctx.fillStyle="#111";ctx.beginPath();ctx.arc(22,-2,2,0,7);ctx.fill();
+      ctx.strokeStyle="#8ab04a";ctx.lineWidth=5;ctx.lineCap="round";ctx.beginPath();ctx.moveTo(-18,0);ctx.lineTo(-34,8);ctx.stroke();
+      ctx.strokeStyle="#6a8a2a";ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(-20,-4);ctx.lineTo(-30,-8);ctx.stroke();
+      ctx.strokeStyle="#8ab04a";ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(-8,6);ctx.lineTo(-14,12);ctx.stroke();ctx.beginPath();ctx.moveTo(4,6);ctx.lineTo(8,12);ctx.stroke();
+      ctx.fillStyle="#6a8a2a";ctx.beginPath();ctx.arc(6,2,3,0,7);ctx.fill();
+      // хвост
+      ctx.strokeStyle="#8ab04a";ctx.lineWidth=5;ctx.strokeStyle="#8ab04a";ctx.beginPath();ctx.moveTo(-18,0);ctx.lineTo(-38,10);ctx.stroke();
+      ctx.restore(); break; }
+    case "eagle": case "орёл": { s(x,y); ctx.scale(1.2,1.2);
+      ctx.fillStyle="#5a3a22";ctx.beginPath();ctx.ellipse(0,0,20,16,0,0,7);ctx.fill();
+      ctx.fillStyle="#3a2210";ctx.beginPath();ctx.moveTo(-16,-2);ctx.quadraticCurveTo(-34,4,-20,8);ctx.quadraticCurveTo(-30,14,-14,6);ctx.closePath();ctx.fill();
+      ctx.beginPath();ctx.moveTo(16,-2);ctx.quadraticCurveTo(34,4,20,8);ctx.quadraticCurveTo(30,14,14,6);ctx.closePath();ctx.fill();
+      ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(18,-4,3,0,7);ctx.fill();
+      ctx.fillStyle="#ff9d00";ctx.beginPath();ctx.moveTo(22,-6);ctx.lineTo(30,-4);ctx.lineTo(22,-2);ctx.closePath();ctx.fill();
+      ctx.restore(); break; }
+    case "parrot": case "попугай": { s(x,y); ctx.scale(1.15,1.15);
+      ctx.fillStyle="#2a9a3a";ctx.beginPath();ctx.ellipse(0,-14,18,22,0,0,7);ctx.fill();
+      ctx.beginPath();ctx.arc(0,-32,12,0,7);ctx.fill();
+      ctx.fillStyle="#e83a3a";ctx.beginPath();ctx.arc(0,-32,9,0,7);ctx.fill();// лицо красное
+      ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(-3,-34,2,0,7);ctx.arc(3,-34,2,0,7);ctx.fill();
+      ctx.fillStyle="#111";ctx.beginPath();ctx.arc(-3,-34,1,0,7);ctx.arc(3,-34,1,0,7);ctx.fill();
+      ctx.fillStyle="#2a2a2a";ctx.beginPath();ctx.moveTo(8,-32);ctx.lineTo(16,-29);ctx.lineTo(8,-28);ctx.closePath();ctx.fill();
+      // крылья
+      ctx.fillStyle="#e86a2a";ctx.beginPath();ctx.moveTo(-14,-12);ctx.quadraticCurveTo(-26,-8,-20,10);ctx.closePath();ctx.fill();
+      ctx.fillStyle="#2a9a3a";ctx.beginPath();ctx.moveTo(14,-12);ctx.quadraticCurveTo(26,-8,20,10);ctx.closePath();ctx.fill();
+      ctx.strokeStyle="#2a9a3a";ctx.lineWidth=5;ctx.lineCap="round";ctx.beginPath();ctx.moveTo(0,6);ctx.quadraticCurveTo(4,14,0,18);ctx.stroke();
+      ctx.restore(); break; }
+    case "goose": case "гусь": { s(x,y); ctx.scale(1.15,1.15);
+      ctx.fillStyle="#f4f4f4";ctx.beginPath();ctx.ellipse(0,-14,20,14,0,0,7);ctx.fill();
+      ctx.fillStyle="#e0e0e0";ctx.beginPath();ctx.arc(6,-28,9,0,7);ctx.fill();
+      ctx.fillStyle="#ff9d00";ctx.beginPath();ctx.moveTo(14,-29);ctx.lineTo(22,-26);ctx.lineTo(14,-24);ctx.closePath();ctx.fill();
+      ctx.fillStyle="#111";ctx.beginPath();ctx.arc(10,-30,2,0,7);ctx.fill();
+      ctx.fillStyle="#d0d0d0";ctx.beginPath();ctx.moveTo(-16,-12);ctx.quadraticCurveTo(-24,-18,-26,-8);ctx.closePath();ctx.fill();
+      ctx.strokeStyle="#e0e0e0";ctx.lineWidth=5;ctx.strokeStyle="#d0d0d0";ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(-8,-2);ctx.lineTo(-10,6);ctx.stroke();ctx.beginPath();ctx.moveTo(4,-2);ctx.lineTo(5,6);ctx.stroke();
+      // шея длинная
+      ctx.strokeStyle="#f4f4f4";ctx.lineWidth=9;ctx.lineCap="round";ctx.beginPath();ctx.moveTo(2,-16);ctx.lineTo(6,-32);ctx.stroke();
+      ctx.restore(); break; }
+    case "turkey": case "индюк": { s(x,y); ctx.scale(1.2,1.2);
+      ctx.fillStyle="#6a4a2a";ctx.beginPath();ctx.ellipse(0,-14,24,16,0,0,7);ctx.fill();
+      ctx.fillStyle="#8a6a4a";ctx.beginPath();ctx.arc(-6,-34,12,0,7);ctx.fill();
+      ctx.fillStyle="#e86a2a";ctx.beginPath();ctx.ellipse(0,-30,6,4,0,0,7);ctx.fill();
+      // хвост-веер
+      ctx.fillStyle="#c8a03a";
+      for(let i=-4;i<=4;i++){ctx.beginPath();ctx.moveTo(0,-10);ctx.lineTo(i*12,-34+Math.abs(i));ctx.stroke();}
+      ctx.beginPath();ctx.arc(0,-16,14,0,Math.PI);ctx.fill();
+      ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(-6,-38,3,0,7);ctx.fill();
+      ctx.fillStyle="#ff6a3a";ctx.beginPath();ctx.moveTo(2,-34);ctx.lineTo(10,-30);ctx.lineTo(2,-30);ctx.closePath();ctx.fill();
+      ctx.strokeStyle="#6a4a2a";ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(-16,-4);ctx.lineTo(-18,4);ctx.stroke();ctx.beginPath();ctx.moveTo(14,-4);ctx.lineTo(16,4);ctx.stroke();
+      ctx.restore(); break; }
+    case "whale": case "кит": { s(x,y); ctx.scale(1.3,1.3);
+      ctx.fillStyle="#3a6a9a";ctx.beginPath();ctx.ellipse(0,0,32,20,0,0,7);ctx.fill();
+      ctx.fillStyle="#2a4a8a";ctx.beginPath();ctx.moveTo(-30,0);ctx.lineTo(-48,6);ctx.lineTo(-40,-4);ctx.closePath();ctx.fill();
+      // фонтан
+      ctx.strokeStyle="#bfe8ff";ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(-14,-8);ctx.quadraticCurveTo(-16,-20,-8,-24);ctx.stroke();ctx.beginPath();ctx.moveTo(-14,-8);ctx.quadraticCurveTo(-20,-16,-22,-24);ctx.stroke();
+      ctx.fillStyle="#bfe8ff";ctx.beginPath();ctx.arc(-8,-24,2,0,7);ctx.arc(-22,-24,2,0,7);ctx.fill();
+      ctx.fillStyle="#6a8ab0";ctx.beginPath();ctx.arc(18,2,3,0,7);ctx.fill();
+      ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(6,-8,4,0,7);ctx.fill();
+      ctx.fillStyle="#111";ctx.beginPath();ctx.arc(7,-8,2,0,7);ctx.fill();
+      ctx.restore(); break; }
+    case "octopus": case "осьминог": { s(x,y); ctx.scale(1.1,1.1);
+      ctx.fillStyle="#e86a9a";ctx.beginPath();ctx.arc(0,-12,18,0,7);ctx.fill();
+      // щупальца
+      ctx.strokeStyle="#e86a9a";ctx.lineWidth=5;ctx.lineCap="round";
+      for(let i=0;i<6;i++){const a=i/6*Math.PI;ctx.beginPath();ctx.moveTo(0,0);ctx.quadraticCurveTo(Math.cos(a)*18,Math.sin(a)*16,Math.cos(a)*26,Math.sin(a)*22);ctx.stroke();}
+      ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(-6,-16,4,0,7);ctx.arc(6,-16,4,0,7);ctx.fill();ctx.fillStyle="#111";ctx.beginPath();ctx.arc(-6,-16,2,0,7);ctx.arc(6,-16,2,0,7);ctx.fill();
+      ctx.beginPath();ctx.arc(0,-8,3,0,7);ctx.fill();
+      ctx.restore(); break; }
+    case "squid": case "кальмар": { s(x,y); ctx.scale(1.05,1.05);
+      ctx.fillStyle="#c84a8a";ctx.beginPath();ctx.ellipse(0,-14,16,22,0,0,7);ctx.fill();
+      ctx.strokeStyle="#c84a8a";ctx.lineWidth=4;ctx.lineCap="round";
+      for(let i=-2;i<=2;i++){ctx.beginPath();ctx.moveTo(0,6);ctx.quadraticCurveTo(i*8,16,i*10,24);ctx.stroke();}
+      ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(8,-22,3,0,7);ctx.fill();ctx.fillStyle="#111";ctx.beginPath();ctx.arc(9,-22,1.5,0,7);ctx.fill();
+      ctx.fillStyle="#e86a9a";ctx.beginPath();ctx.moveTo(20,-28);ctx.lineTo(28,-26);ctx.lineTo(20,-24);ctx.closePath();ctx.fill();
+      ctx.restore(); break; }
+    case "jellyfish": case "медуза": { s(x,y); ctx.scale(1.15,1.15);
+      ctx.fillStyle="rgba(200,120,255,0.6)";ctx.beginPath();ctx.arc(0,-14,16,0,Math.PI);ctx.fill();
+      ctx.fillStyle="#c878ff";ctx.beginPath();ctx.ellipse(0,-14,16,7,0,0,Math.PI);ctx.stroke();ctx.beginPath();ctx.arc(0,-16,16,Math.PI,0);ctx.closePath();ctx.fill();
+      ctx.strokeStyle="#c878ff";ctx.lineWidth=4;ctx.lineCap="round";
+      for(let i=0;i<5;i++){const a=i/5*Math.PI;ctx.beginPath();ctx.moveTo(Math.cos(a)*12,-14);ctx.quadraticCurveTo(Math.cos(a)*16,2,Math.cos(a)*20,12);ctx.stroke();}
+      ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(-6,-18,3,0,7);ctx.arc(6,-18,3,0,7);ctx.fill();ctx.fillStyle="#111";ctx.beginPath();ctx.arc(-6,-18,1.5,0,7);ctx.arc(6,-18,1.5,0,7);ctx.fill();
+      ctx.restore(); break; }
+    case "shark": case "акула": { s(x,y); ctx.scale(1.2,1.2);
+      ctx.fillStyle="#7a8a9a";ctx.beginPath();ctx.moveTo(-30,-2);ctx.quadraticCurveTo(-12,-16,4,-8);ctx.quadraticCurveTo(24,0,32,2);ctx.quadraticCurveTo(20,8,22,14);ctx.quadraticCurveTo(10,0,-6,4);ctx.quadraticCurveTo(-18,8,-30,-2);ctx.closePath();ctx.fill();
+      ctx.fillStyle="#5a6a7a";ctx.beginPath();ctx.moveTo(4,-8);ctx.lineTo(8,-18);ctx.lineTo(-2,-6);ctx.closePath();ctx.fill();// плавник
+      ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(20,0,3,0,7);ctx.fill();ctx.fillStyle="#111";ctx.beginPath();ctx.arc(21,0,1.5,0,7);ctx.fill();
+      ctx.strokeStyle="#9aaab8";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(28,0);ctx.lineTo(18,6);ctx.stroke();// жабры
+      ctx.restore(); break; }
+    case "seahorse": case "морской конёк": { s(x,y); ctx.scale(1.15,1.15);
+      ctx.fillStyle="#e8a05a";ctx.beginPath();ctx.ellipse(0,-14,10,24,0,0,7);ctx.fill();
+      ctx.fillStyle="#e8a05a";ctx.beginPath();ctx.arc(0,-32,12,0,7);ctx.fill();
+      ctx.fillStyle="#c8783a";ctx.beginPath();ctx.moveTo(0,-42);ctx.lineTo(-4,-30);ctx.lineTo(4,-30);ctx.closePath();ctx.fill();// нос
+      ctx.fillStyle="#e8a05a";ctx.beginPath();ctx.arc(-8,-38,5,0,7);ctx.arc(8,-38,5,0,7);ctx.fill();
+      ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(4,-32,2,0,7);ctx.fill();ctx.fillStyle="#111";ctx.beginPath();ctx.arc(5,-32,1,0,7);ctx.fill();
+      ctx.strokeStyle="#e8a05a";ctx.lineWidth=4;ctx.lineCap="round";ctx.beginPath();ctx.moveTo(0,4);ctx.quadraticCurveTo(4,14,0,20);ctx.stroke();// хвост-завиток
+      ctx.beginPath();ctx.moveTo(-8,-44);ctx.lineTo(-8,-50);ctx.stroke();// рожки
+      ctx.beginPath();ctx.moveTo(8,-44);ctx.lineTo(8,-50);ctx.stroke();
+      ctx.fillStyle="#c8783a";ctx.beginPath();ctx.arc(0,-4,3,0,7);ctx.fill();// брюшко-полоска
+      ctx.restore(); break; }
+    case "starfish": case "морская звезда": { s(x,y); ctx.scale(1.1,1.1);
+      ctx.fillStyle="#ff8a4a";ctx.beginPath();for(let i=0;i<5;i++){const a=-Math.PI/2+i/5*Math.PI*2;const x=Math.cos(a)*24,y=Math.sin(a)*24;if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);}
+      ctx.closePath();ctx.fill();
+      ctx.fillStyle="#e87a3a";ctx.beginPath();ctx.arc(0,0,6,0,7);ctx.fill();
+      ctx.fillStyle="#fff";ctx.beginPath();for(let i=0;i<5;i++){const a=-Math.PI/2+i/5*Math.PI*2;const x=Math.cos(a)*12,y=Math.sin(a)*12;if(i===0)ctx.moveTo(x+2,y);else ctx.lineTo(x+2,y);}ctx.fill();
+      ctx.restore(); break; }
+    case "bee": case "пчела": { s(x,y); ctx.scale(1.15,1.15);
+      ctx.strokeStyle="#222";ctx.lineWidth=1.5;
+      ctx.beginPath();ctx.ellipse(0,-10,8,10,0.3,0,Math.PI);ctx.stroke();// крыло
+      ctx.fillStyle="#ffcf3a";ctx.beginPath();ctx.ellipse(0,0,18,12,0,0,7);ctx.fill();
+      ctx.strokeStyle="#222";ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(-10,-2);ctx.lineTo(10,-2);ctx.stroke();ctx.beginPath();ctx.moveTo(-12,3);ctx.lineTo(12,3);ctx.stroke();
+      ctx.fillStyle="#222";ctx.beginPath();ctx.arc(0,-12,8,0,7);ctx.fill();
+      ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(-2,-13,2,0,7);ctx.arc(3,-12,2,0,7);ctx.fill();ctx.fillStyle="#111";ctx.beginPath();ctx.arc(-2,-13,1,0,7);ctx.arc(3,-12,1,0,7);ctx.fill();
+      ctx.fillStyle="#222";ctx.beginPath();ctx.moveTo(-8,-6);ctx.lineTo(-12,-2);ctx.stroke();
+      ctx.restore(); break; }
+    case "ladybug": case "божья коровка": { s(x,y); ctx.scale(1.05,1.05);
+      ctx.fillStyle="#e83a3a";ctx.beginPath();ctx.arc(0,-2,16,0,7);ctx.fill();
+      ctx.fillStyle="#111";ctx.beginPath();ctx.ellipse(0,-14,14,8,0,0,Math.PI);ctx.fill();// голова
+      ctx.fillStyle="#111";ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(0,-2);ctx.lineTo(0,14);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(-12,-2);ctx.lineTo(12,-2);ctx.stroke();
+      ctx.fillStyle="#111";ctx.beginPath();ctx.arc(-6,-4,2.5,0,7);ctx.arc(6,-4,2.5,0,7);ctx.arc(-7,4,2.5,0,7);ctx.arc(7,4,2.5,0,7);ctx.fill();
+      ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(-5,-16,2,0,7);ctx.arc(5,-16,2,0,7);ctx.fill();ctx.fillStyle="#111";ctx.beginPath();ctx.arc(-5,-16,1,0,7);ctx.arc(5,-16,1,0,7);ctx.fill();
+      ctx.strokeStyle="#3a3a3a";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(0,-6);ctx.quadraticCurveTo(4,4,0,8);ctx.stroke();
+      ctx.restore(); break; }
+    case "ant": case "муравей": { s(x,y); ctx.scale(1.1,1.1);
+      ctx.fillStyle="#222";ctx.beginPath();ctx.arc(6,-20,6,0,7);ctx.fill();// голова
+      ctx.fillStyle="#111";ctx.strokeStyle="#111";ctx.lineWidth=2;
+      ctx.beginPath();ctx.moveTo(6,-26);ctx.lineTo(10,-30);ctx.stroke();ctx.beginPath();ctx.moveTo(6,-26);ctx.lineTo(4,-30);ctx.stroke();
+      ctx.fillStyle="#333";ctx.beginPath();ctx.ellipse(2,-14,8,9,0,0,7);ctx.fill();// грудь
+      ctx.fillStyle="#222";ctx.beginPath();ctx.ellipse(-6,-12,10,11,0,0,7);ctx.fill();// брюшко
+      ctx.strokeStyle="#222";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-2,-10);ctx.lineTo(-8,-4);ctx.stroke();ctx.beginPath();ctx.moveTo(0,-8);ctx.lineTo(6,-4);ctx.stroke();ctx.beginPath();ctx.moveTo(4,-12);ctx.lineTo(12,-8);ctx.stroke();
+      ctx.restore(); break; }
+    case "bird": case "птица": { s(x,y); ctx.scale(1.1,1.1);
+      ctx.fillStyle="#5fd0ff";ctx.beginPath();ctx.ellipse(0,-12,16,12,0,0,7);ctx.fill();
+      ctx.strokeStyle="#2fa0d0";ctx.lineWidth=8;ctx.lineCap="round";
+      ctx.beginPath();ctx.moveTo(-4,-12);ctx.quadraticCurveTo(-20,-18,-6,-12);ctx.stroke();
+      ctx.fillStyle="#5fd0ff";ctx.beginPath();ctx.arc(14,-14,8,0,7);ctx.fill();
+      ctx.fillStyle="#ffcf4d";ctx.beginPath();ctx.moveTo(20,-14);ctx.lineTo(27,-11);ctx.lineTo(20,-10);ctx.closePath();ctx.fill();
+      ctx.fillStyle="#111";ctx.beginPath();ctx.arc(17,-15,2,0,7);ctx.fill();
+      ctx.restore(); break; }
+    default: break;
+  }
+}
+// тело кота (переиспользуется)
+function drawCatBody(y,b1,b2){
+  const bob=Math.sin(tGlobal*10)*2;
+  ctx.strokeStyle=b2;ctx.lineWidth=8;ctx.lineCap="round";
+  ctx.beginPath();ctx.moveTo(-22,-10);ctx.quadraticCurveTo(-34,-16+Math.sin(tGlobal*6)*6,-30,-26);ctx.stroke();
+  ctx.fillStyle=b1;ctx.beginPath();ctx.ellipse(0,-18-bob,20,26,0,0,7);ctx.fill();
+  ctx.fillStyle=b1;ctx.beginPath();ctx.arc(0,-46-bob,20,0,7);ctx.fill();
+  ctx.fillStyle=b2;
+  ctx.beginPath();ctx.moveTo(-14,-52-bob);ctx.lineTo(-10,-68-bob);ctx.lineTo(-4,-52-bob);ctx.closePath();ctx.fill();
+  ctx.beginPath();ctx.moveTo(14,-52-bob);ctx.lineTo(10,-68-bob);ctx.lineTo(4,-52-bob);ctx.closePath();ctx.fill();
+  ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(-7,-48-bob,6,0,7);ctx.arc(7,-48-bob,6,0,7);ctx.fill();
+  ctx.fillStyle="#1a1a2e";ctx.beginPath();ctx.arc(-7,-48-bob,3,0,7);ctx.arc(7,-48-bob,3,0,7);ctx.fill();
+  ctx.fillStyle="#e0566b";ctx.beginPath();ctx.arc(0,-42-bob,4,0,7);ctx.fill();
+  ctx.strokeStyle="#e0566b";ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(-3,-40-bob);ctx.lineTo(0,-38-bob);ctx.lineTo(3,-40-bob);ctx.stroke();
+  ctx.strokeStyle=b2;ctx.lineWidth=6;ctx.lineCap="round";
+  const lx=Math.sin(tGlobal*8)*6;
+  ctx.beginPath();ctx.moveTo(-12,4-bob);ctx.lineTo(-14+lx,18);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(12,4-bob);ctx.lineTo(14-lx,18);ctx.stroke();
+}
+
+// --- ЗИМА ---
+scenes.winter={title:"Зима",emoji:"❄️",caption:"Снежный лес",
+draw(t,dt){
+  const sky=ctx.createLinearGradient(0,0,0,H);
+  sky.addColorStop(0,"#9db8d8");sky.addColorStop(1,"#dceaf5");
+  ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
+  // сугробы
+  const g=ctx.createLinearGradient(0,H*0.55,0,H);
+  g.addColorStop(0,"#eef4fb");g.addColorStop(1,"#c8d8ea");
+  ctx.fillStyle=g;ctx.fillRect(0,H*0.6,W,H*0.4);
+  ctx.beginPath();ctx.moveTo(0,H*0.68);ctx.quadraticCurveTo(W*0.3,H*0.55,W*0.6,H*0.66);ctx.quadraticCurveTo(W*0.85,H*0.75,W,H*0.64);ctx.lineTo(W,H);ctx.lineTo(0,H);ctx.closePath();ctx.fill();
+  // деревья (заснеженные ели)
+  for(let i=0;i<12;i++){
+    const x=(i*(W/13)+((i*37)%40));
+    const htree=110+((i*29)%60);
+    const baseY=H*0.72;
+    // ствол
+    ctx.fillStyle="#5a4636";ctx.fillRect(x-6,baseY-htree*0.25,12,htree*0.28);
+    // 3 яруса кроны
+    for(let k=0;k<3;k++){
+      const cy=baseY-htree*0.25-(htree*0.22)*(k+0.3);
+      const rw=htree*0.18*(3-k);
+      const grad=ctx.createLinearGradient(x-rw,cy,x+rw,cy+rw);
+      grad.addColorStop(0,"#e8f2fb");grad.addColorStop(1,"#bcd6ec");
+      ctx.fillStyle=grad;
+      ctx.beginPath();ctx.moveTo(x,cy-rw);ctx.lineTo(x+rw,cy+rw*0.6);ctx.lineTo(x,cy+rw);ctx.lineTo(x-rw,cy+rw*0.6);ctx.closePath();ctx.fill();
+    }
+    // снежная шапка
+    ctx.fillStyle="#ffffff";ctx.beginPath();ctx.arc(x,baseY-htree*0.45,htree*0.06,0,7);ctx.fill();
+  }
+  // снегопад
+  for(let i=0;i<90;i++){
+    const x=(i*157+((t*20)%W))%W;
+    const y=(i*71+((t*55)%H))%H;
+    ctx.fillStyle="rgba(255,255,255,0.8)";
+    ctx.beginPath();ctx.arc(x,y,2+((i%3)),0,7);ctx.fill();
+  }
+  // зимние животные (пингвин по умолчанию)
+  const wchars=(this.chars&&this.chars.length)?this.chars:[(this.char&&this.char!=="none"?this.char:"penguin")];
+  if(wchars.length){ drawRow(wchars, t, H*0.80, W); }
+}};
+
+// --- ПУСТЫНЯ ---
+scenes.desert={title:"Пустыня",emoji:"🏜",caption:"Золотые дюны",
+draw(t,dt){
+  const sky=ctx.createLinearGradient(0,0,0,H);
+  sky.addColorStop(0,"#ffb347");sky.addColorStop(0.5,"#ffd88a");sky.addColorStop(1,"#ffcf6b");
+  ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
+  // солнце
+  const sg=ctx.createRadialGradient(W*0.75,H*0.25,10,W*0.75,H*0.25,100);
+  sg.addColorStop(0,"rgba(255,255,230,0.95)");sg.addColorStop(1,"rgba(255,230,160,0)");
+  ctx.fillStyle=sg;ctx.beginPath();ctx.arc(W*0.75,H*0.25,100,0,7);ctx.fill();
+  // дюны (три полосы с волной)
+  const dunes=[["#e8b45c",H*0.45,60],["#d89e3f",H*0.62,120],["#c18a30",H*0.8,180]];
+  dunes.forEach((d,i)=>{
+    ctx.fillStyle=d[0];
+    ctx.beginPath();ctx.moveTo(0,d[1]);
+    for(let x=0;x<=W;x+=20){ctx.lineTo(x,d[1]+Math.sin(x*0.01+i*2+t*0.5)*(d[2]*0.3));}
+    ctx.lineTo(W,H);ctx.lineTo(0,H);ctx.closePath();ctx.fill();
+  });
+  // кактус
+  ctx.fillStyle="#3a7a3a";
+  ctx.fillRect(W*0.12,H*0.5,26,120);
+  ctx.fillRect(W*0.08,H*0.53,14,60);ctx.fillRect(W*0.28,H*0.53,14,50);
+  ctx.beginPath();ctx.arc(W*0.25+7,H*0.5,14,0,7);ctx.arc(W*0.11+7,H*0.5,13,0,7);ctx.fill();
+  // животные пустыни (все из запроса)
+  const chars=(this.chars&&this.chars.length)?this.chars:(this.char&&this.char!=="none"?[this.char]:[]);
+  if(chars.length){ drawRow(chars, t, H*0.82, W); }
+}};
+
+// --- ДЖУНГЛИ ---
+scenes.jungle={title:"Джунгли",emoji:"🌴",caption:"Тропические джунгли",
+draw(t,dt){
+  const sky=ctx.createLinearGradient(0,0,0,H);
+  sky.addColorStop(0,"#1f6a4a");sky.addColorStop(1,"#0f3a2a");
+  ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
+  // лианы и пальмы по бокам
+  ctx.strokeStyle="#2f8a4a";ctx.lineWidth=8;
+  for(let i=0;i<6;i++){
+    const bx=i%2===0? -20:W+20;
+    ctx.beginPath();ctx.moveTo(bx,-10);
+    ctx.quadraticCurveTo(bx+(i%2===0?60:-60),H*0.5,bx+(i%2===0?40:-40),H);ctx.stroke();
+  }
+  // листья пальмы
+  for(let i=0;i<10;i++){
+    const lx=(i*(W/9)+((i*23)%30))%(W+60)-30;
+    ctx.fillStyle=i%2?"#2fa05a":"#3fc06a";
+    ctx.beginPath();ctx.ellipse(lx,H*0.15+((i*13)%40),45,14,0.4+((i%2)*0.8),0,7);ctx.fill();
+  }
+  // стволы деревьев
+  ctx.fillStyle="#4a3a22";
+  for(let i=0;i<5;i++){ctx.fillRect(i*(W/5)+((i*17)%30),H*0.4,40,260);}
+  // земля
+  ctx.fillStyle="#2a6a2a";ctx.fillRect(0,H*0.7,W,H*0.3);
+  // полог света
+  const ray=ctx.createRadialGradient(W*0.5,0,0,W*0.5,0,400);
+  ray.addColorStop(0,"rgba(255,250,180,0.15)");ray.addColorStop(1,"rgba(255,250,180,0)");
+  ctx.fillStyle=ray;ctx.fillRect(0,0,W,H);
+  // животные джунглей (все из запроса)
+  const chars=(this.chars&&this.chars.length)?this.chars:(this.char&&this.char!=="none"?[this.char]:[]);
+  if(chars.length){ drawRow(chars, t, H*0.82, W); }
+}};
+
+// --- ПОЛЕ ---
+scenes.field={title:"Поле",emoji:"🌾",caption:"Цветущий луг",
+draw(t,dt){
+  const sky=ctx.createLinearGradient(0,0,0,H);
+  sky.addColorStop(0,"#7ad0ff");sky.addColorStop(0.5,"#bfe8ff");sky.addColorStop(1,"#e8f7ff");
+  ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
+  // солнце
+  const sg=ctx.createRadialGradient(W*0.2,H*0.2,5,W*0.2,H*0.2,70);
+  sg.addColorStop(0,"rgba(255,255,220,0.95)");sg.addColorStop(1,"rgba(255,255,200,0)");
+  ctx.fillStyle=sg;ctx.beginPath();ctx.arc(W*0.2,H*0.2,70,0,7);ctx.fill();
+  // дальние холмы
+  ctx.fillStyle="#7fbf6a";ctx.beginPath();ctx.moveTo(0,H*0.4);ctx.quadraticCurveTo(W*0.5,H*0.25,W,H*0.4);ctx.lineTo(W,H);ctx.lineTo(0,H);ctx.closePath();ctx.fill();
+  // поле цветов
+  ctx.fillStyle="#4a9a3a";ctx.fillRect(0,H*0.55,W,H*0.45);
+  // цветы
+  for(let i=0;i<120;i++){
+    const fx=(i*73)%W, fy=H*0.58+((i*41)%(H*0.35));
+    const col=["#ff4d8a","#ffcf4d","#fff4f0","#ff7ac2","#ff6b3a"][i%5];
+    ctx.fillStyle=col;
+    ctx.beginPath();ctx.arc(fx, fy+((i%3)%2?0:Math.sin(t*2+i)*3), 4,0,7);ctx.fill();
+    ctx.fillStyle="#3a8a2a";ctx.beginPath();ctx.moveTo(fx,fy);ctx.lineTo(fx,fy-16);ctx.stroke();
+  }
+  // животные поля (все из запроса)
+  const chars=(this.chars&&this.chars.length)?this.chars:(this.char&&this.char!=="none"?[this.char]:[]);
+  const fly=chars.filter(c=>["butterfly","bee","bird"].indexOf(c)>=0);
+  const ground=chars.filter(c=>c!=="butterfly"&&c!=="bee"&&c!=="bird");
+  if(ground.length){ drawRow(ground, t, H*0.82, W); }
+  if(fly.length){
+    for(let i=0;i<fly.length;i++){ drawAnimal(fly[i], (t*24+i*80)%W, H*0.35+Math.sin(t*3+i*2)*25); }
+  }
+}};
+
+// --- ПЛЯЖ ---
+scenes.beach={title:"Пляж",emoji:"🏖",caption:"Тропический пляж",
+draw(t,dt){
+  const sky=ctx.createLinearGradient(0,0,0,H*0.55);
+  sky.addColorStop(0,"#5fc4ff");sky.addColorStop(0.6,"#9fe0ff");sky.addColorStop(1,"#eafcff");
+  ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
+  // море
+  const sea=ctx.createLinearGradient(0,H*0.4,0,H*0.7);
+  sea.addColorStop(0,"#2aa8e0");sea.addColorStop(1,"#1a7ac0");
+  ctx.fillStyle=sea;ctx.fillRect(0,H*0.4,W,H*0.35);
+  // пенка
+  for(let i=0;i<40;i++){const x=(i*50+((t*30)%W))%W;ctx.fillStyle="rgba(255,255,255,0.7)";ctx.fillRect(x,H*0.63+((i*7)%20)*2,2,3);}
+  // песок
+  const sand=ctx.createLinearGradient(0,H*0.55,0,H);
+  sand.addColorStop(0,"#ffe7a8");sand.addColorStop(1,"#f5d488");
+  ctx.fillStyle=sand;ctx.fillRect(0,H*0.58,W,H*0.42);
+  // пальмы
+  for(let i=0;i<4;i++){
+    const px=i*(W/4);
+    ctx.strokeStyle="#7a5a30";ctx.lineWidth=10;ctx.lineCap="round";
+    ctx.beginPath();ctx.moveTo(px,H*0.6);ctx.quadraticCurveTo(px+18,H*0.45,px-6,H*0.35);ctx.stroke();
+    ctx.strokeStyle="#2fa05a";ctx.lineWidth=4;
+    for(let k=0;k<6;k++){const a=k/6*Math.PI*2;ctx.beginPath();ctx.moveTo(px-6,H*0.35);ctx.lineTo(px-6+Math.cos(a)*36,H*0.35+Math.sin(a)*16);ctx.stroke();}
+  }
+  // животные пляжа (все из запроса)
+  const chars=(this.chars&&this.chars.length)?this.chars:(this.char&&this.char!=="none"?[this.char]:[]);
+  if(chars.length){ drawRow(chars, t, H*0.84, W); }
+}};
+
+// --- САВАННА ---
+scenes.savanna={title:"Саванна",emoji:"🦁",caption:"Широкая саванна",
+draw(t,dt){
+  const sky=ctx.createLinearGradient(0,0,0,H);
+  sky.addColorStop(0,"#7abde0");sky.addColorStop(0.4,"#ffe9b0");sky.addColorStop(1,"#ffcf8a");
+  ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
+  // солнце
+  const sg=ctx.createRadialGradient(W*0.8,H*0.28,8,W*0.8,H*0.28,90);
+  sg.addColorStop(0,"rgba(255,255,230,0.95)");sg.addColorStop(1,"rgba(255,240,200,0)");
+  ctx.fillStyle=sg;ctx.beginPath();ctx.arc(W*0.8,H*0.28,90,0,7);ctx.fill();
+  // трава саванны (жёлтая)
+  ctx.fillStyle="#dfa83a";ctx.fillRect(0,H*0.5,W,H*0.5);
+  // кусты-акации
+  for(let i=0;i<6;i++){
+    const ax=(i*(W/6)+((i*23)%30));
+    ctx.strokeStyle="#7a5a22";ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(ax,H*0.52);ctx.quadraticCurveTo(ax+6,H*0.45,ax-12,H*0.4);ctx.stroke();
+    ctx.strokeStyle="#3a8a3a";ctx.lineWidth=8;ctx.beginPath();ctx.moveTo(ax-12,H*0.4);ctx.lineTo(ax-30,H*0.36);ctx.moveTo(ax-12,H*0.4);ctx.lineTo(ax+8,H*0.34);ctx.moveTo(ax-12,H*0.4);ctx.lineTo(ax-4,H*0.32);ctx.stroke();
+  }
+  // передний план - холмы
+  ctx.fillStyle="#c8902a";ctx.beginPath();ctx.moveTo(0,H*0.7);ctx.quadraticCurveTo(W*0.3,H*0.6,W*0.6,H*0.7);ctx.quadraticCurveTo(W*0.85,H*0.78,W,H*0.72);ctx.lineTo(W,H);ctx.lineTo(0,H);ctx.closePath();ctx.fill();
+  // животные саванны (все из запроса)
+  const chars=(this.chars&&this.chars.length)?this.chars:(this.char&&this.char!=="none"?[this.char]:[]);
+  const flyS=chars.filter(c=>["butterfly","bee","bird","eagle","parrot"].indexOf(c)>=0);
+  const groundS=chars.filter(c=>["butterfly","bee","bird","eagle","parrot"].indexOf(c)<0);
+  if(groundS.length){ drawRow(groundS, t, H*0.82, W); }
+  if(flyS.length){
+    for(let i=0;i<flyS.length;i++){ drawAnimal(flyS[i], (t*24+i*90)%W, H*0.3+Math.sin(t*3+i*2)*25); }
+  }
+}};
+
+// --- ФЕРМА ---
+scenes.farm={title:"Ферма",emoji:"🚜",caption:"Деревенская ферма",
+draw(t,dt){
+  const sky=ctx.createLinearGradient(0,0,0,H);
+  sky.addColorStop(0,"#9fd0ff");sky.addColorStop(0.6,"#d0e9ff");sky.addColorStop(1,"#eaf7ff");
+  ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
+  // забор
+  ctx.strokeStyle="#8a5a30";ctx.lineWidth=5;
+  for(let x=0;x<W;x+=46){ctx.beginPath();ctx.moveTo(x,H*0.6);ctx.lineTo(x,H*0.68);ctx.stroke();}
+  ctx.beginPath();ctx.moveTo(0,H*0.62);ctx.lineTo(W,H*0.62);ctx.stroke();ctx.beginPath();ctx.moveTo(0,H*0.66);ctx.lineTo(W,H*0.66);ctx.stroke();
+  // сарай
+  ctx.fillStyle="#c04a30";ctx.fillRect(W*0.15,H*0.5,150,100);
+  ctx.fillStyle="#8a3a20";ctx.beginPath();ctx.moveTo(W*0.15,H*0.5);ctx.lineTo(W*0.15+75,H*0.4);ctx.lineTo(W*0.15+150,H*0.5);ctx.closePath();ctx.fill();
+  ctx.fillStyle="#fff";ctx.fillRect(W*0.15+55,H*0.55,40,45);
+  ctx.fillStyle="#8a3a20";ctx.fillRect(W*0.15+55,H*0.55,40,12);
+  // поле с грядками
+  ctx.fillStyle="#6a8a3a";ctx.fillRect(0,H*0.72,W,H*0.28);
+  for(let i=0;i<8;i++){ctx.fillStyle=i%2?"#7a9a4a":"#5a7a2a";ctx.fillRect(i*(W/8),H*0.74,W/16,H*0.18);}
+  // животные фермы (все из запроса)
+  const chars=(this.chars&&this.chars.length)?this.chars:(this.char&&this.char!=="none"?[this.char]:[]);
+  if(chars.length){ drawRow(chars, t, H*0.84, W); }
+}};
+
+// --- ПРУД / ОЗЕРО ---
+scenes.pond={title:"Пруд",emoji:"🦆",caption:"Тихий пруд с кувшинками",
+draw(t,dt){
+  const sky=ctx.createLinearGradient(0,0,0,H);
+  sky.addColorStop(0,"#a0c8e0");sky.addColorStop(1,"#d8ecf5");
+  ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
+  // дальний лес
+  ctx.fillStyle="#4a7a3a";ctx.fillRect(0,H*0.35,W,H*0.2);
+  // пруд (овал)
+  const pgrad=ctx.createRadialGradient(W*0.5,H*0.6,30,W*0.5,H*0.6,220);
+  pgrad.addColorStop(0,"#3aa0d0");pgrad.addColorStop(1,"#1a6090");
+  ctx.fillStyle=pgrad;ctx.beginPath();ctx.ellipse(W*0.5,H*0.6,230,120,0,0,7);ctx.fill();
+  // рябь
+  for(let i=0;i<20;i++){const x=(i*60+((t*20)%300))-150,y=H*0.55+((i*11)%50);ctx.strokeStyle="rgba(255,255,255,0.4)";ctx.lineWidth=1;ctx.beginPath();ctx.ellipse(W*0.5+x,y,20,8,0,0,7);ctx.stroke();}
+  // кувшинки
+  for(let i=0;i<6;i++){const lx=W*0.4+((i*43)%140),ly=H*0.55+((i*27)%50);ctx.fillStyle="#3a9a3a";ctx.beginPath();ctx.ellipse(lx,ly,16,11,0,0,7);ctx.fill();}
+  // берега трава
+  ctx.fillStyle="#5a8a3a";ctx.fillRect(0,H*0.72,W,H*0.28);
+  // животные у пруда (все из запроса)
+  const chars=(this.chars&&this.chars.length)?this.chars:(this.char&&this.char!=="none"?[this.char]:[]);
+  if(chars.length){ drawRow(chars, t, H*0.84, W); }
+}};
+
+// --- ОАЗИС ---
+scenes.oasis={title:"Оазис",emoji:"🌴",caption:"Оазис в пустыне",
+draw(t,dt){
+  const sky=ctx.createLinearGradient(0,0,0,H);
+  sky.addColorStop(0,"#ffb35c");sky.addColorStop(0.5,"#ffd88a");sky.addColorStop(1,"#ffcf8a");
+  ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
+  ctx.fillStyle="#e8b45c";ctx.fillRect(0,H*0.55,W,H*0.45);
+  // вода-оазис
+  const pg=ctx.createRadialGradient(W*0.5,H*0.66,20,W*0.5,H*0.66,120);
+  pg.addColorStop(0,"#4ac0e8");pg.addColorStop(1,"#2a84b0");ctx.fillStyle=pg;
+  ctx.beginPath();ctx.ellipse(W*0.5,H*0.66,120,55,0,0,7);ctx.fill();
+  // пальмы
+  for(let i=0;i<3;i++){const px=W*0.33+i*90;ctx.strokeStyle="#7a5a30";ctx.lineWidth=8;ctx.beginPath();ctx.moveTo(px,H*0.6);ctx.quadraticCurveTo(px+4,H*0.5,px-4,H*0.42);ctx.stroke();ctx.strokeStyle="#2fa05a";ctx.lineWidth=4;for(let k=0;k<6;k++){const a=k/6*Math.PI*2;ctx.beginPath();ctx.moveTo(px-4,H*0.42);ctx.lineTo(px-4+Math.cos(a)*30,H*0.42+Math.sin(a)*12);ctx.stroke();}}
+  // животные оазиса (все из запроса)
+  const chars=(this.chars&&this.chars.length)?this.chars:(this.char&&this.char!=="none"?[this.char]:[]);
+  const gO=chars.filter(c=>c!=="bird"&&c!=="butterfly"&&c!=="bee");
+  if(gO.length){ drawRow(gO, t, H*0.84, W); }
+}};
+
+// --- ВУЛКАН ---
+scenes.volcano={title:"Вулкан",emoji:"🌋",caption:"Дымящийся вулкан",
+draw(t,dt){
+  const sky=ctx.createLinearGradient(0,0,0,H);
+  sky.addColorStop(0,"#2a1a2a");sky.addColorStop(0.6,"#7a3a3a");sky.addColorStop(1,"#c04a30");
+  ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
+  // конус вулкана
+  ctx.fillStyle="#4a3a3a";ctx.beginPath();ctx.moveTo(-50,H);ctx.lineTo(W*0.5,H*0.35);ctx.lineTo(W+50,H);ctx.closePath();ctx.fill();
+  // кратер и лава
+  ctx.fillStyle="#ff8a3a";ctx.beginPath();ctx.ellipse(W*0.5,H*0.35,60,18,0,Math.PI,Math.PI*2);ctx.fill();
+  // лавовые потоки
+  ctx.fillStyle="#ff6a2a";ctx.lineWidth=12;ctx.beginPath();ctx.moveTo(W*0.45,H*0.4);ctx.quadraticCurveTo(W*0.3,H*0.6,W*0.2,H);ctx.stroke();
+  ctx.fillStyle="#ff9a4a";ctx.lineWidth=8;ctx.beginPath();ctx.moveTo(W*0.56,H*0.4);ctx.quadraticCurveTo(W*0.7,H*0.6,W*0.75,H);ctx.stroke();
+  // дым
+  for(let i=0;i<8;i++){ctx.fillStyle=`rgba(80,80,80,${0.3*Math.abs(Math.sin(t+ i))})`;ctx.beginPath();ctx.arc(W*0.5+Math.sin(t*2+i)*20,H*0.2-i*14,18+i*6,0,7);ctx.fill();}
+  // пепел
+  for(let i=0;i<40;i++){ctx.fillStyle="rgba(40,40,40,0.6)";ctx.fillRect((i*67+((t*30)%W))%W,(i*49+((t*60)%H))%H,3,3);}
+}};
+
+// --- ТУНДРА ---
+scenes.tundra={title:"Тундра",emoji:"🗻",caption:"Холодная тундра",
+draw(t,dt){
+  const sky=ctx.createLinearGradient(0,0,0,H);
+  sky.addColorStop(0,"#5a7a9a");sky.addColorStop(1,"#b0c8d8");
+  ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
+  ctx.fillStyle="#8aa0a4";ctx.fillRect(0,H*0.4,W,H*0.6);
+  // валуны и кочки
+  ctx.fillStyle="#6a7a7e";ctx.beginPath();ctx.arc(W*0.2,H*0.7,20,0,7);ctx.fill();ctx.beginPath();ctx.arc(W*0.7,H*0.75,32,0,7);ctx.fill();
+  // мхи-красный лишайник
+  for(let i=0;i<30;i++){ctx.fillStyle="rgba(200,80,60,0.6)";ctx.beginPath();ctx.arc((i*97)%W,H*0.42+((i*13)%40),3,0,7);ctx.fill();}
+  // северное сияние
+  for(let i=0;i<3;i++){ctx.fillStyle=`rgba(60,200,180,${0.25*Math.abs(Math.sin(t+i))})`;ctx.beginPath();ctx.moveTo(0,H*0.15);ctx.quadraticCurveTo(W*0.3,H*0.1-10,W*0.5,H*0.15);ctx.quadraticCurveTo(W*0.7,H*0.1+10,W,H*0.13);ctx.lineTo(W,H*0.05);ctx.quadraticCurveTo(W*0.5,H*0+i*6,0,H*0.08);ctx.closePath();ctx.fill();}
+  // животные тундры (все из запроса)
+  const chars=(this.chars&&this.chars.length)?this.chars:(this.char&&this.char!=="none"?[this.char]:[]);
+  if(chars.length){ drawRow(chars, t, H*0.84, W); }
+}};
+
+// ================== ПЛЕЙЕР ==================
+const st={playing:false,t:0,audioOn:true,idx:0};
+let animId=null,lastT=null;
+function buildSequence(q){
+  const keys=pickScenes(q);
+  const chars=pickCharacters(q);
+  const char=chars.length?chars[0]:"none"; // локация по первому найденному
+  seq=keys.map(k=>scenes[k]);
+  seq.forEach(s=>{s.char=char; s.chars=chars;});
+  st.t=0;cur=seq[0];st.idx=0;
+  return {names:seq.map(s=>s.emoji+" "+s.title), char:char, chars:chars};
+}
+function segDur(){return 10;}
+function render(dt){
+  // 1) всегда сначала яркий фон — никогда не видим чистый чёрный
+  ctx.clearRect(0,0,W,H);
+  const bg=ctx.createLinearGradient(0,0,0,H);
+  bg.addColorStop(0,"#4a3a8a");bg.addColorStop(0.5,"#2a4a8a");bg.addColorStop(1,"#0a2a5a");
+  ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
+  if(!cur){caption("🚀 жду запрос — напиши что-нибудь внизу");return;}
+  tGlobal+=dt;
+  const ci=Math.min(seq.length-1,Math.floor(st.t/segDur()));
+  if(ci!==st.idx){st.idx=ci;cur=seq[ci];}
+  const local=st.t-ci*segDur();
+  try{
+    cur.draw(local,dt);
+  }catch(e){
+    // ошибка сцены не должна ронять цикл — рисуем цветной фон
+    ctx.fillStyle="rgba(122,90,255,0.25)";
+    ctx.fillRect(0,0,W,H);
+  }
+  // подпись — стильная плашка по центру внизу
+  try{
+    const label=(cur.emoji||"")+"  "+(cur.title||"");
+    const fx=W/2, fy=H-44;
+    // ширина текста
+    ctx.font="600 34px Segoe UI,system-ui,sans-serif";
+    const tw=ctx.measureText(label).width;
+    // плашка с градиентной рамкой
+    const bx=fx-tw/2-22, by=fy-30, bw=tw+44, bh=44;
+    ctx.save();
+    ctx.shadowColor="rgba(0,0,0,0.55)";ctx.shadowBlur=18;
+    ctx.fillStyle="rgba(10,14,26,0.72)";
+    ctx.beginPath();ctx.roundRect(bx,by,bw,bh,22);ctx.fill();
+    ctx.shadowBlur=0;
+    // тонкая светлая кайма
+    ctx.strokeStyle="rgba(255,255,255,0.28)";ctx.lineWidth=1.2;
+    ctx.beginPath();ctx.roundRect(bx,by,bw,bh,22);ctx.stroke();
+    ctx.textAlign="center";ctx.textBaseline="middle";
+    ctx.fillStyle="#ffffff";
+    ctx.fillText(label, fx, fy);
+    ctx.restore();
+  }catch(e){ /* roundRect может быть недоступен в старых браузерах — запасной вариант */
+    ctx.shadowColor="rgba(0,0,0,0.9)";ctx.shadowBlur=16;
+    ctx.font="700 40px Segoe UI,system-ui,sans-serif";
+    ctx.textAlign="center";ctx.textBaseline="bottom";
+    ctx.fillStyle="#ffffff";
+    ctx.fillText((cur.emoji||"")+"  "+(cur.title||""), W/2, H-26);
+    ctx.shadowBlur=0;
+  }
+}
+function caption(txt){
+  ctx.shadowColor="rgba(0,0,0,0.8)";ctx.shadowBlur=12;
+  ctx.font="600 34px Segoe UI,system-ui,sans-serif";
+  ctx.textAlign="center";ctx.textBaseline="middle";
+  ctx.fillStyle="#fff";ctx.fillText(txt,W/2,H/2);
+  ctx.shadowBlur=0;
+}
+function startLoop(){
+  if(animId)return;
+  lastT=performance.now();
+  const tick=now=>{
+    const dt=Math.min(0.07,(now-lastT)/1000);lastT=now;
+    try{
+      if(st.playing) st.t+=dt;
+      if(seq.length&&st.t>=seq.length*segDur()) st.t=0;
+    }catch(e){}
+    try{
+      render(dt);
+    }catch(e){}
+    animId=requestAnimationFrame(tick);
+  };
+  animId=requestAnimationFrame(tick);
+}
+function play(){if(!cur)return;st.playing=true;}
+function pause(){st.playing=false;}
+function togglePlay(){if(st.playing){pause();$("btnPlay").textContent="▶ Смотреть";}else{play();$("btnPlay").textContent="⏸ Пауза";}}
+
+// ================== МУЗЫКА ==================
+let AC=null,gain=null,musicOn=false;
+function getAC(){if(!AC)AC=new(window.AudioContext||window.webkitAudioContext)();return AC;}
+function startMusic(){
+  const ac=getAC();if(ac.state==="suspended")ac.resume();
+  if(gain)return;
+  gain=ac.createGain();gain.gain.value=0.0001;gain.connect(ac.destination);
+  const bpm=90,beat=60/bpm;
+  (function loop(){
+    const ch=[60,64,67];
+    ch.forEach(n=>{const o=ac.createOscillator(),g=ac.createGain();o.type="sine";o.frequency.value=440*Math.pow(2,(n-69)/12);o.detune.value=Math.random()*4-2;g.gain.setValueAtTime(0.0001,ac.currentTime);g.gain.exponentialRampToValueAtTime(0.10,ac.currentTime+0.4);g.gain.exponentialRampToValueAtTime(0.0001,ac.currentTime+beat*4);o.connect(g);g.connect(gain);o.start();o.stop(ac.currentTime+beat*4);});
+    const mel=[60,64,67,69,67,64,67,69];
+    mel.forEach((n,i)=>{const o=ac.createOscillator(),g=ac.createGain();o.type="triangle";o.frequency.value=440*Math.pow(2,(n+12-69)/12);g.gain.setValueAtTime(0.0001,ac.currentTime+i*beat*0.5);g.gain.exponentialRampToValueAtTime(0.09,ac.currentTime+i*beat*0.5+0.05);g.gain.exponentialRampToValueAtTime(0.0001,ac.currentTime+beat*3);o.connect(g);g.connect(gain);o.start(ac.currentTime+i*beat*0.5);o.stop(ac.currentTime+beat*3);});
+    setTimeout(loop,beat*4000);
+  })();
+  musicOn=true;
+}
+function setUSound(){if(!gain)return;gain.gain.setTargetAtTime(st.audioOn?0.4:0.0001,getAC().currentTime,0.2);}
+function toggleSound(){st.audioOn=!st.audioOn;$("btnSound").textContent=st.audioOn?"🎵 Звук: вкл":"🎵 Звук: выкл";getAC().resume();setUSound();}
+
+// ================== ГЕНЕРАЦИЯ ==================
+function showGen(on){$("genCenter").classList.toggle("show",on);}
+function generate(){
+  const q=$("prompt").value.trim();
+  if(!q){log("<b>Напиши, что хочешь увидеть</b>","me");return;}
+  // списание кредитов / проверка безлимита
+  if(!trySpend()){
+    const ap=activePromo();
+    const msg = ap ? "Антиспам: слишком много генераций подряд. Подожди немного." : "Недостаточно кредитов ⭐. Используй промокод или подожди.";
+    log("<b>⛔ "+msg+"</b>","me");
+    return;
+  }
+  renderCredits();
+  log("🧑 Ты: <i>"+q.replace(/</g,"&lt;")+"</i>","me");
+  showGen(true);$("genText").textContent="Генерирую видео…";$("genSub").textContent="понимаю запрос";$("genFill").style.width="0%";
+  setTimeout(()=>{
+    const res=buildSequence(q);
+    const names=res.names;
+    const charTxt=res.char==="cat"?"🐱 с котиком":res.char==="dog"?"🐶 с собачкой":res.char==="bird"?"🐦 с птичкой":res.char==="dolphin"?"🐬 с дельфином":"";
+    $("genSub").textContent="собираю: "+names.join(" → ")+(charTxt?" + "+charTxt:"");
+    log("🤖 Собираю клип из сцен: "+names.join(", ")+(charTxt?" — "+charTxt:""),"ai");
+  },400);
+  setTimeout(()=>{ $("genFill").style.width="100%"; },700);
+  setTimeout(()=>{
+    showGen(false);
+    startLoop();play();$("btnPlay").textContent="⏸ Пауза";
+    log("✅ Клип готов. Жми «⏺ Скачать», чтобы сохранить.","ai");
+  },1400);
+  getAC().resume();if(!musicOn)startMusic();setUSound();
+}
+
+// ================== ЗАПИСЬ ==================
+let rec=null,chs=[];
+async function record(){
+  if(!cur)return;
+  const ac=getAC();await ac.resume();
+  if(!musicOn)startMusic();setUSound();
+  const stream=cv.captureStream(30);
+  const dest=ac.createMediaStreamDestination();
+  if(gain)gain.connect(dest);
+  const mix=new MediaStream(stream.getVideoTracks().concat(dest.stream.getAudioTracks()));
+  const mime=MediaRecorder.isTypeSupported("video/webm;codecs=vp9")?"video/webm;codecs=vp9":MediaRecorder.isTypeSupported("video/webm")?"video/webm":"";
+  if(!mime){log("Браузер не записывает видео","me");return;}
+  rec=new MediaRecorder(mix,{mimeType:mime,videoBitsPerSecond:8000000,audioBitsPerSecond:160000});
+  chs=[];rec.ondataavailable=e=>{if(e.data.size)chs.push(e.data);};rec.onstop=finish;
+  st.t=0;play();$("btnRecord").textContent="⏹ остановить";log("🔴 Записываю клип…","ai");
+  rec.start(100);
+}
+function finish(){
+  const blob=new Blob(chs,{type:"video/webm"});
+  const url=URL.createObjectURL(blob);
+  $("dlLink").href=url;$("dlSize").textContent=(blob.size/1048576).toFixed(2)+" МБ";
+  $("dl").style.display="block";$("btnRecord").textContent="⏺ Скачать видео";
+  log("✅ Скачай файл ниже.","ai");
+}
+
+// ================== ЧИПЫ ==================
+const SUGG=["неоновый город под дождём","космическое путешествие через туманность","закат на океане с волнами","снежный лес на рассвете","горные вершины в облаках"];
+function buildChips(){const box=$("chips");box.innerHTML="";SUGG.forEach(s=>{const d=document.createElement("div");d.className="chip";d.textContent=s;d.onclick=()=>{$("prompt").value=s;generate();};box.appendChild(d);});}
+
+// ================== СОБЫТИЯ ==================
+$("btnGen").addEventListener("click",generate);
+$("btnPlay").addEventListener("click",togglePlay);
+$("btnRecord").addEventListener("click",()=>{if(rec&&rec.state==="recording"){rec.stop();pause();}else record();});
+$("btnSound").addEventListener("click",toggleSound);
+$("prompt").addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();generate();}});
+
+buildChips();
+log("👋 Привет! Я SoraLite — бесплатный ИИ-видео. <b>Напиши, что хочешь увидеть</b>, и нажми «✦ Создать клип».","ai");
+log("Пример: <i>«неоновый город под дождём»</i> или <i>«полёт через космос»</i>.","me");
+buildSequence("космос с планетой");
+startLoop();play();
+</script>
+</body>
+</html>
